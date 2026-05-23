@@ -52,3 +52,14 @@ def register_cli(flask_app: Flask) -> None:
 
         seed_database()
         print("Seed completado.")
+
+    @flask_app.cli.command("aws-poll-jobs")
+    def aws_poll_jobs_command():
+        """Consulta jobs de análisis AWS pendientes (cuando esté implementado)."""
+        from app.services.analysis_service import poll_pending_jobs
+
+        try:
+            count = poll_pending_jobs()
+            print(f"Jobs procesados: {count}")
+        except NotImplementedError as exc:
+            print(exc)

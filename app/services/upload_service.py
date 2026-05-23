@@ -231,4 +231,8 @@ def update_class_session(
             )
 
     db.session.commit()
+
+    if has_video or has_audio:
+        enqueue_analysis(str(clase.id))
+
     return clase

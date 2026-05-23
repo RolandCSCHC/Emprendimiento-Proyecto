@@ -64,8 +64,6 @@ Con los contenedores en marcha (`docker compose up`):
 | Username | `gymsight` |
 | Password | `gymsight` |
 
-> Usa el puerto **5433** (no 5432). La app dentro de Docker habla con Postgres por la red interna; desde tu Mac usas el puerto publicado **5433**.
-
 ## Variables de entorno
 
 Copia `.env.example` a `.env` antes del primer `docker compose up`:
@@ -73,7 +71,7 @@ Copia `.env.example` a `.env` antes del primer `docker compose up`:
 | Variable | Descripción |
 |----------|-------------|
 | `SECRET_KEY` | Clave secreta de Flask (cámbiala en producción) |
-| `MAX_UPLOAD_MB` | Tamaño máximo de subida por archivo (default: 500) |
+| `MAX_UPLOAD_MB` | Tamaño máximo de subida por archivo (default: 800) |
 
 `DATABASE_URL` lo define Docker Compose para el contenedor `web`; no hace falta editarlo para uso local.
 

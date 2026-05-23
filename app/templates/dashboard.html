@@ -30,9 +30,18 @@
             <span class="file-tag">Audio</span>
           {% endif %}
         </p>
-        <a class="btn btn-secondary" href="{{ url_for('dashboard.session_detail', clase_id=clase.id) }}">
-          Ver detalle
-        </a>
+        <div class="card-actions">
+          <a class="btn btn-secondary" href="{{ url_for('dashboard.session_detail', clase_id=clase.id) }}">
+            Ver detalle
+          </a>
+          <a class="btn btn-secondary btn-sm" href="{{ url_for('dashboard.edit_clase', clase_id=clase.id) }}">
+            Editar
+          </a>
+          <form method="post" action="{{ url_for('dashboard.delete_clase_route', clase_id=clase.id) }}"
+                onsubmit="return confirm('¿Eliminar esta clase? Esta acción no se puede deshacer.');">
+            <button type="submit" class="btn btn-danger btn-sm">Eliminar</button>
+          </form>
+        </div>
       </article>
     {% endfor %}
   </div>

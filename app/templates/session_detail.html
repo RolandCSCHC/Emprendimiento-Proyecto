@@ -5,10 +5,21 @@
 {% block content %}
 <section class="page-header">
   <a href="{{ url_for('dashboard.dashboard') }}" class="back-link">&larr; Volver al dashboard</a>
-  <h1>{{ clase.nombre }}</h1>
-  <p>
-    <span class="badge badge-pending">{{ status_label }}</span>
-  </p>
+  <div class="page-header-row">
+    <div>
+      <h1>{{ clase.nombre }}</h1>
+      <p>
+        <span class="badge badge-pending">{{ status_label }}</span>
+      </p>
+    </div>
+    <div class="page-actions">
+      <a class="btn btn-secondary" href="{{ url_for('dashboard.edit_clase', clase_id=clase.id) }}">Editar</a>
+      <form method="post" action="{{ url_for('dashboard.delete_clase_route', clase_id=clase.id) }}"
+            onsubmit="return confirm('¿Eliminar esta clase? Esta acción no se puede deshacer.');">
+        <button type="submit" class="btn btn-danger">Eliminar</button>
+      </form>
+    </div>
+  </div>
 </section>
 
 <section class="session-info">

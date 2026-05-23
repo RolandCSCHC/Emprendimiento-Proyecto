@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block title %}Gymsight — Editar clase{% endblock %}
+
+{% block content %}
+<section class="page-header">
+  <a href="{{ url_for('dashboard.session_detail', clase_id=clase.id) }}" class="back-link">&larr; Volver al detalle</a>
+  <h1>Editar clase</h1>
+  <p>Modifica los datos de la clase. Los archivos son opcionales: déjalos vacíos para mantener los actuales.</p>
+</section>
+
+{% if clase.archivos %}
+<section class="session-info">
+  <h2>Archivos actuales</h2>
+  <ul class="archivos-list">
+    {% for archivo in clase.archivos %}
+      <li>
+        <span class="file-tag">{{ archivo.tipo|capitalize }}</span>
+        {{ archivo.nombre_original }}
+      </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<form class="upload-form upload-form-wide" method="post" enctype="multipart/form-data"
+      action="{{ url_for('dashboard.edit_clase', clase_id=clase.id) }}">
+  <div class="form-group">
+    <label for="gimnasio_id">Gimnasio</label>
+    <select id="gimnasio_id" name="gimnasio_id" required>
+      {% for gimnasio in gimnasios %}
+        <option value="{{ gimnasio.id }}" {% if gimnasio_id == gimnasio.id|string %}selected{% endif %}>
+          {{ gimnasio.nombre }}
+        </option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="form-row">
+    <div class="form-group">
+      <label for="profesor_id">Profesor</label>
+      <select id="profesor_id" name="profesor_id" required>
+        <option value="">Seleccionar...</option>
+        {% for profesor in profesores %}
+          <option value="{{ profesor.id }}" {% if profesor_id == profesor.id|string %}selected{% endif %}>
+            {{ profesor.nombre_completo }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="tipo_clase_id">Tipo de clase</label>
+      <select id="tipo_clase_id" name="tipo_clase_id" required>
+        <option value="">Seleccionar...</option>
+        {% for tipo in tipos_clase %}
+          <option value="{{ tipo.id }}" {% if tipo_clase_id == tipo.id|string %}selected{% endif %}>
+            {{ tipo.nombre }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label for="nombre">Nombre de la clase</label>
+    <input type="text" id="nombre" name="nombre" required
+           placeholder="Ej. Yoga grupal mañana"
+           value="{{ nombre or '' }}">
+  </div>
+
+  <div class="form-row">
+    <div class="form-group">
+      <label for="fecha">Fecha y hora de la clase</label>
+      <input type="datetime-local" id="fecha" name="fecha" required
+             value="{{ fecha or '' }}">
+    </div>
+
+    <div class="form-group">
+      <label for="sala">Sala (opcional)</label>
+      <input type="text" id="sala" name="sala" placeholder="Ej. Sala 2"
+             value="{{ sala or '' }}">
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label for="nivel">Nivel (opcional)</label>
+    <input type="text" id="nivel" name="nivel" placeholder="Ej. Principiante"
+           value="{{ nivel or '' }}">
+  </div>
+
+  <div class="form-group">
+    <label for="video">Reemplazar video (opcional)</label>
+    <input type="file" id="video" name="video" accept=".mp4,.webm,.mov,video/*">
+    <small>Sube un archivo solo si quieres reemplazar el video actual.</small>
+  </div>
+
+  <div class="form-group">
+    <label for="audio">Reemplazar audio (opcional)</label>
+    <input type="file" id="audio" name="audio" accept=".mp3,.wav,.m4a,.ogg,audio/*">
+    <small>Sube un archivo solo si quieres reemplazar el audio actual.</small>
+  </div>
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Guardar cambios</button>
+    <a class="btn btn-secondary" href="{{ url_for('dashboard.session_detail', clase_id=clase.id) }}">Cancelar</a>
+  </div>
+</form>
+{% endblock %}

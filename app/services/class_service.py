@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+import shutil
 import uuid
-from datetime import datetime
 
 from flask import current_app
 
@@ -83,3 +83,30 @@ def create_pending_analysis_jobs(clase: Clase) -> list[AnalisisJob]:
             )
         )
     return jobs
+
+
+def _parse_clase_id(clase_id: str | uuid.UUID) -> uuid.UUID | None:
+    if isinstance(clase_id, uuid.UUID):
+        return clase_id
+    try:
+        return uuid.UUID(clase_id)
+    except ValueError:
+        return None
+
+
+def delete_clase(clase_id: str | uuid.UUID) -> bool:
+    parsed_id = _parse_clase_id(clase_id)
+    if parsed_id is None:
+        return False
+
+    clase = get_clase(parsed_id)
+    if clase is None:
+        return False
+
+    clase_dir = current_app.config["UPLOAD_FOLDER"] / str(clase.id)
+    if clase_dir.exists():
+        shutil.rmtree(clase_dir)
+
+    db.session.delete(clase)
+    db.session.commit()
+    return True

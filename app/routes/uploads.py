@@ -1,27 +1,15 @@
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 
-from app.services.class_service import list_gimnasios, list_profesores, list_tipos_clase
+from app.form_context import class_form_context
 from app.services.upload_service import UploadValidationError, create_class_session
 
 uploads_bp = Blueprint("uploads", __name__)
 
 
-def _upload_form_context(**kwargs):
-    gimnasios = list_gimnasios()
-    gimnasio_id = kwargs.get("gimnasio_id") or (str(gimnasios[0].id) if gimnasios else "")
-    return {
-        "gimnasios": gimnasios,
-        "profesores": list_profesores(),
-        "tipos_clase": list_tipos_clase(),
-        **kwargs,
-        "gimnasio_id": gimnasio_id,
-    }
-
-
 @uploads_bp.route("/upload", methods=["GET", "POST"])
 def upload():
     if request.method == "GET":
-        return render_template("upload.html", **_upload_form_context())
+        return render_template("upload.html", **class_form_context())
 
     nombre = request.form.get("nombre", "")
     fecha = request.form.get("fecha", "")
@@ -33,7 +21,7 @@ def upload():
     video = request.files.get("video")
     audio = request.files.get("audio")
 
-    form_data = _upload_form_context(
+    form_data = class_form_context(
         nombre=nombre,
         fecha=fecha,
         gimnasio_id=gimnasio_id,

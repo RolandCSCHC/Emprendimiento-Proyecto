@@ -9,6 +9,27 @@ services:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gymsight -d gymsight"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build: .
+    ports:
+      - "5001:5000"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://gymsight:gymsight@db:5432/gymsight
+      FLASK_ENV: production
+    volumes:
+      - uploads_data:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
 
 volumes:
   postgres_data:
+  uploads_data:

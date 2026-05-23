@@ -2,76 +2,95 @@
 
 Software integral que analiza audio y video de clases grupales para obtener datos reales sobre asistencia, participación y dinámica de la clase, entregando métricas y recomendaciones sin interrumpir a los alumnos ni depender de encuestas tradicionales.
 
-## Fase actual — Flask + PostgreSQL
-
-- Subida de video y/o audio por clase
-- Datos de gimnasio, profesor y tipo de clase (yoga, pilates, etc.)
-- Dashboard con listado y detalle
-- 5 métricas en estado pendiente hasta integrar AWS
-- Persistencia en PostgreSQL
-
-Próximas fases: Docker completo, integración AWS.
-
 ## Requisitos
 
-- Python 3.9 o superior
-- PostgreSQL 16 (o Docker)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (incluye Docker Compose)
 
-## Base de datos con Docker
+## Inicio rápido
 
-```bash
-docker compose up -d
-```
-
-Esto levanta PostgreSQL en `localhost:5433` con usuario/contraseña/base: `gymsight`.
-
-Asegúrate de que tu `.env` incluya:
-
-```
-DATABASE_URL=postgresql://gymsight:gymsight@localhost:5433/gymsight
-```
-
-## Instalación
+Desde la carpeta del proyecto:
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate   # En Windows: .venv\Scripts\activate
-pip install -r requirements.txt
 cp .env.example .env
+docker compose up --build
 ```
 
-## Inicializar la base de datos
+La primera vez puede tardar unos minutos (descarga de imágenes y construcción).
 
-Opción A — sin migraciones (rápido para desarrollo):
+Cuando veas que el servicio `web` está en marcha, abre en el navegador:
+
+**http://localhost:5001**
+
+Para detener la aplicación: `Ctrl+C` y luego:
 
 ```bash
-flask init-db
+docker compose down
 ```
 
-Opción B — con Flask-Migrate:
+Para volver a levantarla sin reconstruir:
 
 ```bash
-flask db init          # solo la primera vez
-flask db migrate -m "Initial schema"
-flask db upgrade
-flask seed
+docker compose up
 ```
 
-## Ejecución
+## Uso de la aplicación
 
-```bash
-flask run
-```
-
-Abre [http://127.0.0.1:5000](http://127.0.0.1:5000).
-
-## Uso
-
-1. Ve a **Subir clase** y completa gimnasio, profesor, tipo, nombre, fecha y archivos.
-2. Tras crear la clase, verás el detalle con métricas pendientes.
+1. Ve a **Subir clase** y completa gimnasio, profesor, tipo, nombre, fecha y archivos (video y/o audio).
+2. Tras crear la clase, verás el detalle con las métricas en estado pendiente.
 3. En **Dashboard** aparecen todas las clases registradas.
 
-## Modelo de datos (7 tablas)
+Al arrancar, la app crea automáticamente las tablas y datos de demostración (1 gimnasio, 3 profesores, 4 tipos de clase).
+
+## Comandos útiles
+
+| Comando | Descripción |
+|---------|-------------|
+| `docker compose up --build` | Construye y levanta app + base de datos |
+| `docker compose up -d` | Levanta en segundo plano |
+| `docker compose down` | Detiene y elimina contenedores |
+| `docker compose down -v` | Detiene y **borra** datos (BD y uploads) |
+| `docker compose logs -f web` | Ver logs de la aplicación |
+| `docker compose ps` | Estado de los contenedores |
+
+## Conectar DBeaver (u otro cliente SQL)
+
+Con los contenedores en marcha (`docker compose up`):
+
+| Campo | Valor |
+|-------|--------|
+| Host | `localhost` |
+| Port | `5433` |
+| Database | `gymsight` |
+| Username | `gymsight` |
+| Password | `gymsight` |
+
+> Usa el puerto **5433** (no 5432). La app dentro de Docker habla con Postgres por la red interna; desde tu Mac usas el puerto publicado **5433**.
+
+## Variables de entorno
+
+Copia `.env.example` a `.env` antes del primer `docker compose up`:
+
+| Variable | Descripción |
+|----------|-------------|
+| `SECRET_KEY` | Clave secreta de Flask (cámbiala en producción) |
+| `MAX_UPLOAD_MB` | Tamaño máximo de subida por archivo (default: 500) |
+
+`DATABASE_URL` lo define Docker Compose para el contenedor `web`; no hace falta editarlo para uso local.
+
+## Arquitectura Docker
+
+```
+┌─────────────┐     ┌──────────────┐
+│   Navegador │────▶│ web :5001    │  Flask + Gunicorn
+└─────────────┘     └──────┬───────┘
+                           │
+                    ┌──────▼───────┐
+                    │  db :5432    │  PostgreSQL
+                    └──────────────┘
+         (expuesto en localhost:5433)
+```
+
+## Modelo de datos
 
 | Tabla | Descripción |
 |-------|-------------|
@@ -94,8 +113,9 @@ Abre [http://127.0.0.1:5000](http://127.0.0.1:5000).
 ## Estructura del proyecto
 
 ```
-app/              # Aplicación Flask
-migrations/       # Migraciones Alembic (tras flask db init)
-uploads/          # Archivos de media (gitignored)
+app/                 # Código Flask
+docker/              # entrypoint del contenedor
+migrations/          # Migraciones de base de datos
 docker-compose.yml
+Dockerfile
 ```

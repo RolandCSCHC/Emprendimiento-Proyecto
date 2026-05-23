@@ -11,7 +11,7 @@ class Config:
 
     SQLALCHEMY_DATABASE_URI = os.environ.get(
         "DATABASE_URL",
-        "postgresql://gymsight:gymsight@localhost:5433/gymsight",
+        "postgresql://gymsight:gymsight@db:5432/gymsight",
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 

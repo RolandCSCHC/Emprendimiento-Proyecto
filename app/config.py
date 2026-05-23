@@ -9,9 +9,13 @@ class Config:
     MAX_UPLOAD_MB = int(os.environ.get("MAX_UPLOAD_MB", 500))
     MAX_CONTENT_LENGTH = MAX_UPLOAD_MB * 1024 * 1024
 
+    SQLALCHEMY_DATABASE_URI = os.environ.get(
+        "DATABASE_URL",
+        "postgresql://gymsight:gymsight@localhost:5433/gymsight",
+    )
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+
     UPLOAD_FOLDER = BASE_DIR / "uploads"
-    DATA_FOLDER = BASE_DIR / "data"
-    SESSIONS_FILE = DATA_FOLDER / "sessions.json"
 
     ALLOWED_VIDEO_EXTENSIONS = {"mp4", "webm", "mov"}
     ALLOWED_AUDIO_EXTENSIONS = {"mp3", "wav", "m4a", "ogg"}

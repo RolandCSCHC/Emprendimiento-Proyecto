@@ -2,20 +2,34 @@
 
 Software integral que analiza audio y video de clases grupales para obtener datos reales sobre asistencia, participación y dinámica de la clase, entregando métricas y recomendaciones sin interrumpir a los alumnos ni depender de encuestas tradicionales.
 
-## Fase 1 — Flask funcional
-
-Esta versión incluye:
+## Fase actual — Flask + PostgreSQL
 
 - Subida de video y/o audio por clase
-- Dashboard con listado y detalle de clases
-- Las 5 métricas definidas en estado **Pendiente de análisis**
-- Persistencia local en `data/sessions.json` y archivos en `uploads/`
+- Datos de gimnasio, profesor y tipo de clase (yoga, pilates, etc.)
+- Dashboard con listado y detalle
+- 5 métricas en estado pendiente hasta integrar AWS
+- Persistencia en PostgreSQL
 
-Próximas fases: PostgreSQL, Docker e integración con AWS.
+Próximas fases: Docker completo, integración AWS.
 
 ## Requisitos
 
-- Python 3.11 o superior
+- Python 3.9 o superior
+- PostgreSQL 16 (o Docker)
+
+## Base de datos con Docker
+
+```bash
+docker compose up -d
+```
+
+Esto levanta PostgreSQL en `localhost:5433` con usuario/contraseña/base: `gymsight`.
+
+Asegúrate de que tu `.env` incluya:
+
+```
+DATABASE_URL=postgresql://gymsight:gymsight@localhost:5433/gymsight
+```
 
 ## Instalación
 
@@ -26,25 +40,48 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
+## Inicializar la base de datos
+
+Opción A — sin migraciones (rápido para desarrollo):
+
+```bash
+flask init-db
+```
+
+Opción B — con Flask-Migrate:
+
+```bash
+flask db init          # solo la primera vez
+flask db migrate -m "Initial schema"
+flask db upgrade
+flask seed
+```
+
 ## Ejecución
 
 ```bash
 flask run
 ```
 
-O alternativamente:
-
-```bash
-python run.py
-```
-
-Abre [http://127.0.0.1:5000](http://127.0.0.1:5000) en el navegador.
+Abre [http://127.0.0.1:5000](http://127.0.0.1:5000).
 
 ## Uso
 
-1. Ve a **Subir clase** y completa el formulario (nombre, fecha, video y/o audio).
-2. Tras crear la clase, serás redirigido al detalle con las métricas en estado pendiente.
-3. En **Dashboard** puedes ver todas las clases registradas.
+1. Ve a **Subir clase** y completa gimnasio, profesor, tipo, nombre, fecha y archivos.
+2. Tras crear la clase, verás el detalle con métricas pendientes.
+3. En **Dashboard** aparecen todas las clases registradas.
+
+## Modelo de datos (7 tablas)
+
+| Tabla | Descripción |
+|-------|-------------|
+| `gimnasios` | Sede / negocio |
+| `profesores` | Instructores |
+| `tipos_clase` | Yoga, Pilates, Spinning, etc. |
+| `clases` | Instancia concreta de una clase |
+| `archivos_media` | Videos y audios subidos |
+| `analisis_jobs` | Jobs de análisis AWS (pendientes) |
+| `metricas` | Las 5 métricas del dashboard |
 
 ## Métricas
 
@@ -57,8 +94,8 @@ Abre [http://127.0.0.1:5000](http://127.0.0.1:5000) en el navegador.
 ## Estructura del proyecto
 
 ```
-app/           # Aplicación Flask
-data/          # Metadatos de clases (gitignored)
-uploads/       # Archivos de media (gitignored)
-run.py         # Punto de entrada
+app/              # Aplicación Flask
+migrations/       # Migraciones Alembic (tras flask db init)
+uploads/          # Archivos de media (gitignored)
+docker-compose.yml
 ```

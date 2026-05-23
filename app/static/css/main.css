@@ -198,6 +198,22 @@ a:hover {
   max-width: 560px;
 }
 
+.upload-form-wide {
+  max-width: 720px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 600px) {
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 .form-group {
   margin-bottom: 1.25rem;
 }
@@ -210,7 +226,8 @@ a:hover {
 
 .form-group input[type="text"],
 .form-group input[type="datetime-local"],
-.form-group input[type="file"] {
+.form-group input[type="file"],
+.form-group select {
   width: 100%;
   padding: 0.65rem 0.75rem;
   border-radius: var(--radius);
@@ -374,6 +391,29 @@ a:hover {
 
 .metric-card h3 {
   font-size: 1rem;
+}
+
+.metric-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.archivos-list {
+  list-style: none;
+}
+
+.archivos-list li {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.archivos-list li:last-child {
+  border-bottom: none;
+}
+
+.text-muted {
+  color: var(--text-muted);
 }
 
 @media (max-width: 600px) {

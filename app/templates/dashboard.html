@@ -9,27 +9,28 @@
   <a class="btn btn-primary" href="{{ url_for('uploads.upload') }}">Nueva clase</a>
 </section>
 
-{% if sessions %}
+{% if clases %}
   <div class="session-grid">
-    {% for session in sessions %}
+    {% for clase in clases %}
       <article class="session-card">
         <div class="session-card-header">
-          <h2>{{ session.nombre }}</h2>
+          <h2>{{ clase.nombre }}</h2>
           <span class="badge badge-pending">Pendiente</span>
         </div>
         <p class="session-meta">
-          <strong>Fecha:</strong> {{ session.fecha }}<br>
-          <strong>Creada:</strong> {{ session.created_at[:19].replace('T', ' ') }}
+          <strong>Tipo:</strong> {{ clase.tipo_clase.nombre }}<br>
+          <strong>Profesor:</strong> {{ clase.profesor.nombre_completo }}<br>
+          <strong>Fecha:</strong> {{ clase.fecha_inicio.strftime('%d/%m/%Y %H:%M') }}
         </p>
         <p class="session-files">
-          {% if session.video_filename %}
+          {% if clase.tiene_video %}
             <span class="file-tag">Video</span>
           {% endif %}
-          {% if session.audio_filename %}
+          {% if clase.tiene_audio %}
             <span class="file-tag">Audio</span>
           {% endif %}
         </p>
-        <a class="btn btn-secondary" href="{{ url_for('dashboard.session_detail', session_id=session.id) }}">
+        <a class="btn btn-secondary" href="{{ url_for('dashboard.session_detail', clase_id=clase.id) }}">
           Ver detalle
         </a>
       </article>

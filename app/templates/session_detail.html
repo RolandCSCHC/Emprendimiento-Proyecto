@@ -1,30 +1,55 @@
 {% extends "base.html" %}
 
-{% block title %}Gymsight — {{ session.nombre }}{% endblock %}
+{% block title %}Gymsight — {{ clase.nombre }}{% endblock %}
 
 {% block content %}
 <section class="page-header">
   <a href="{{ url_for('dashboard.dashboard') }}" class="back-link">&larr; Volver al dashboard</a>
-  <h1>{{ session.nombre }}</h1>
+  <h1>{{ clase.nombre }}</h1>
   <p>
-    <span class="badge badge-pending">Pendiente de análisis</span>
+    <span class="badge badge-pending">{{ status_label }}</span>
   </p>
 </section>
 
 <section class="session-info">
   <h2>Información de la clase</h2>
   <dl class="info-list">
+    <dt>Gimnasio</dt>
+    <dd>{{ clase.gimnasio.nombre }}</dd>
+    <dt>Profesor</dt>
+    <dd>{{ clase.profesor.nombre_completo }}</dd>
+    <dt>Tipo de clase</dt>
+    <dd>{{ clase.tipo_clase.nombre }}</dd>
     <dt>Fecha de la clase</dt>
-    <dd>{{ session.fecha }}</dd>
+    <dd>{{ clase.fecha_inicio.strftime('%d/%m/%Y %H:%M') }}</dd>
+    <dt>Sala</dt>
+    <dd>{{ clase.sala or '—' }}</dd>
+    <dt>Nivel</dt>
+    <dd>{{ clase.nivel or '—' }}</dd>
     <dt>Estado</dt>
-    <dd>{{ session.status }}</dd>
-    <dt>Video</dt>
-    <dd>{{ session.video_filename or 'No subido' }}</dd>
-    <dt>Audio</dt>
-    <dd>{{ session.audio_filename or 'No subido' }}</dd>
-    <dt>Creada</dt>
-    <dd>{{ session.created_at[:19].replace('T', ' ') }} UTC</dd>
+    <dd>{{ status_label }}</dd>
+    <dt>Registrada</dt>
+    <dd>{{ clase.created_at.strftime('%d/%m/%Y %H:%M') }}</dd>
   </dl>
+</section>
+
+<section class="session-info">
+  <h2>Archivos cargados</h2>
+  {% if clase.archivos %}
+    <ul class="archivos-list">
+      {% for archivo in clase.archivos %}
+        <li>
+          <span class="file-tag">{{ archivo.tipo|capitalize }}</span>
+          {{ archivo.nombre_original }}
+          {% if archivo.tamano_bytes %}
+            ({{ (archivo.tamano_bytes / 1024 / 1024)|round(2) }} MB)
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="text-muted">No hay archivos registrados.</p>
+  {% endif %}
 </section>
 
 <section class="metrics-section">
@@ -33,7 +58,13 @@
     {% for metric in metrics %}
       <article class="metric-card">
         <h3>{{ metric.label }}</h3>
-        <span class="badge badge-pending">Pendiente de análisis</span>
+        {% if metric.metrica and metric.metrica.status == 'completed' and metric.metrica.valor_numerico is not none %}
+          <p class="metric-value">{{ metric.metrica.valor_numerico }}{% if metric.metrica.unidad %} {{ metric.metrica.unidad }}{% endif %}</p>
+        {% elif metric.metrica and metric.metrica.valor_texto %}
+          <p class="metric-value">{{ metric.metrica.valor_texto }}</p>
+        {% else %}
+          <span class="badge badge-pending">Pendiente de análisis</span>
+        {% endif %}
       </article>
     {% endfor %}
   </div>

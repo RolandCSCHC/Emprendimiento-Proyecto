@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}Gymsight — Subir clase{% endblock %}
+
+{% block content %}
+<section class="page-header">
+  <h1>Subir clase</h1>
+  <p>Sube el video y/o audio de la clase para iniciar el análisis.</p>
+</section>
+
+<form class="upload-form" method="post" enctype="multipart/form-data" action="{{ url_for('uploads.upload') }}">
+  <div class="form-group">
+    <label for="nombre">Nombre de la clase</label>
+    <input type="text" id="nombre" name="nombre" required
+           placeholder="Ej. Spinning 10:00"
+           value="{{ nombre or '' }}">
+  </div>
+
+  <div class="form-group">
+    <label for="fecha">Fecha y hora de la clase</label>
+    <input type="datetime-local" id="fecha" name="fecha" required
+           value="{{ fecha or '' }}">
+  </div>
+
+  <div class="form-group">
+    <label for="video">Video (opcional)</label>
+    <input type="file" id="video" name="video" accept=".mp4,.webm,.mov,video/*">
+    <small>Formatos: mp4, webm, mov</small>
+  </div>
+
+  <div class="form-group">
+    <label for="audio">Audio (opcional)</label>
+    <input type="file" id="audio" name="audio" accept=".mp3,.wav,.m4a,.ogg,audio/*">
+    <small>Formatos: mp3, wav, m4a, ogg</small>
+  </div>
+
+  <p class="form-hint">Debes subir al menos un archivo de video o audio.</p>
+
+  <button type="submit" class="btn btn-primary">Crear clase</button>
+</form>
+{% endblock %}

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}Gymsight — {{ session.nombre }}{% endblock %}
+
+{% block content %}
+<section class="page-header">
+  <a href="{{ url_for('dashboard.dashboard') }}" class="back-link">&larr; Volver al dashboard</a>
+  <h1>{{ session.nombre }}</h1>
+  <p>
+    <span class="badge badge-pending">Pendiente de análisis</span>
+  </p>
+</section>
+
+<section class="session-info">
+  <h2>Información de la clase</h2>
+  <dl class="info-list">
+    <dt>Fecha de la clase</dt>
+    <dd>{{ session.fecha }}</dd>
+    <dt>Estado</dt>
+    <dd>{{ session.status }}</dd>
+    <dt>Video</dt>
+    <dd>{{ session.video_filename or 'No subido' }}</dd>
+    <dt>Audio</dt>
+    <dd>{{ session.audio_filename or 'No subido' }}</dd>
+    <dt>Creada</dt>
+    <dd>{{ session.created_at[:19].replace('T', ' ') }} UTC</dd>
+  </dl>
+</section>
+
+<section class="metrics-section">
+  <h2>Métricas</h2>
+  <div class="metrics-grid">
+    {% for metric in metrics %}
+      <article class="metric-card">
+        <h3>{{ metric.label }}</h3>
+        <span class="badge badge-pending">Pendiente de análisis</span>
+      </article>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

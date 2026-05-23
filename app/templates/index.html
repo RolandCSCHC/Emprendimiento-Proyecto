@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}Gymsight — Inicio{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <h1>Gymsight</h1>
+  <p class="lead">
+    Software integral que analiza audio y video de clases grupales para obtener datos reales
+    sobre asistencia, participación y dinámica de la clase.
+  </p>
+  <div class="hero-actions">
+    <a class="btn btn-primary" href="{{ url_for('uploads.upload') }}">Subir clase</a>
+    <a class="btn btn-secondary" href="{{ url_for('dashboard.dashboard') }}">Ver dashboard</a>
+  </div>
+</section>
+
+<section class="features">
+  <h2>Métricas que medimos</h2>
+  <ul class="metric-list">
+    <li>Asistencia</li>
+    <li>Permanencia</li>
+    <li>Claridad de Instrucciones</li>
+    <li>Tiempo Hablando vs. Demostrando</li>
+    <li>Satisfacción del Alumno</li>
+  </ul>
+</section>
+{% endblock %}

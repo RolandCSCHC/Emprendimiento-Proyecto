@@ -147,6 +147,10 @@ activemq-data/
 # SageMath parsed files
 *.sage.py
 
+# Gymsight local data
+uploads/
+data/
+
 # Environments
 .env
 .envrc

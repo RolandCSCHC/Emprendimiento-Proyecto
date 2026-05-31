@@ -22,6 +22,8 @@ def create_app(config_name: str | None = None) -> Flask:
 
     flask_app.config["UPLOAD_FOLDER"].mkdir(parents=True, exist_ok=True)
 
+    _validate_aws_config(flask_app)
+
     db.init_app(flask_app)
     migrate.init_app(flask_app, db)
 
@@ -33,6 +35,28 @@ def create_app(config_name: str | None = None) -> Flask:
     register_cli(flask_app)
 
     return flask_app
+
+
+def _validate_aws_config(flask_app: Flask) -> None:
+    """
+    Si AWS está habilitado pero falta configuración requerida (AWS_REGION o
+    S3_BUCKET), loguea un error y deshabilita el pipeline automáticamente
+    para que la app siga funcionando (requisito 14.3).
+    """
+    if not flask_app.config.get("AWS_ENABLED"):
+        return
+
+    faltantes = [
+        nombre
+        for nombre in ("AWS_REGION", "S3_BUCKET")
+        if not flask_app.config.get(nombre)
+    ]
+    if faltantes:
+        flask_app.logger.error(
+            "AWS_ENABLED=true pero falta(n) %s. Se deshabilita el pipeline AWS.",
+            ", ".join(faltantes),
+        )
+        flask_app.config["AWS_ENABLED"] = False
 
 
 def register_cli(flask_app: Flask) -> None:

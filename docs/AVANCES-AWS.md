@@ -30,7 +30,7 @@ main
 | 4 | Transcribe Client | 📦 Commit local | `task-4-transcribe` | — |
 | 5 | Comprehend Client | 📦 Commit local | `task-5-comprehend` | — |
 | 6 | *Checkpoint — verificar clientes AWS* | ⬜ Pendiente | (gate, sin PR) | — |
-| 7 | Pipeline Orchestrator | ⬜ Pendiente | — | — |
+| 7 | Pipeline Orchestrator | 📦 Commit local | `task-7-pipeline` | — |
 | 8 | Job Poller | ⬜ Pendiente | — | — |
 | 9 | Webhook SNS | ⬜ Pendiente | — | — |
 | 10 | *Checkpoint — orquestación y completitud* | ⬜ Pendiente | (gate, sin PR) | — |
@@ -142,7 +142,17 @@ docker run --rm --entrypoint pytest gymsight-test -v
 **Fix aplicado:** se agregó `pythonpath = .` a `pytest.ini` para que pytest encuentre el paquete `app` (scaffolding de la Task 1, detectado al correr la suite).
 
 ### Task 7 — Pipeline Orchestrator
-_Pendiente._
+📦 Commit local (rama `task-7-pipeline`, sobre `task-5-comprehend`).
+
+**Qué se hizo:**
+- `app/services/analysis/constants.py` (nuevo): nombres de servicio (llaves de `combined_raw_data`) y estados de job/clase/métrica.
+- `app/services/analysis/pipeline.py`: `start_analysis_for_clase` — no-op si AWS deshabilitado; pone clase en `analizando`; por archivo valida S3 y lanza jobs (video → person_tracking + face_detection + transcribe; audio → transcribe); registra `AnalisisJob` (`submitted` o `failed`) con `request_payload`. Si un archivo falla no detiene los demás (req 5.7). URL-encode de la key para el `MediaFileUri` de Transcribe (los nombres traen espacios y `#`).
+- `app/services/analysis_service.py`: `enqueue_analysis` activado (verifica `AWS_ENABLED` y llama al orquestador).
+- `app/__init__.py`: `_validate_aws_config` — si `AWS_ENABLED` y falta `AWS_REGION`/`S3_BUCKET`, loguea error y deshabilita el pipeline (req 14.3).
+
+**Tests (`tests/test_pipeline.py` + `tests/factories.py`):** AWS deshabilitado no-op, video lanza 3 jobs, audio solo transcribe, archivo sin S3 → failed, objeto inexistente → failed. Requieren DB Postgres (`db_session`).
+
+**Verificación:** sintaxis OK. pytest con DB se corre en el Checkpoint 10.
 
 ### Task 8 — Job Poller
 _Pendiente._

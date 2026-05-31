@@ -28,7 +28,7 @@ main
 | 2 | S3 Client | 📦 Commit local | `task-2-s3-client` | — |
 | 3 | Rekognition Client | 📦 Commit local | `task-3-rekognition` | — |
 | 4 | Transcribe Client | 📦 Commit local | `task-4-transcribe` | — |
-| 5 | Comprehend Client | ⬜ Pendiente | — | — |
+| 5 | Comprehend Client | 📦 Commit local | `task-5-comprehend` | — |
 | 6 | *Checkpoint — verificar clientes AWS* | ⬜ Pendiente | (gate, sin PR) | — |
 | 7 | Pipeline Orchestrator | ⬜ Pendiente | — | — |
 | 8 | Job Poller | ⬜ Pendiente | — | — |
@@ -112,7 +112,25 @@ main
 **Verificación:** `python -m py_compile` OK. pytest pendiente de entorno (Checkpoint Task 6).
 
 ### Task 5 — Comprehend Client
-_Pendiente._
+📦 Commit local (rama `task-5-comprehend`, sobre `task-4-transcribe`).
+
+**Qué se hizo (`app/services/aws/comprehend_client.py`):**
+- Renombrado el stub `analyze_text_sentiment` → `analyze_sentiment(text, language_code="es")`.
+- Texto vacío o < 10 caracteres → NEUTRAL con confianza 0 (sin llamar a la API).
+- Trunca el texto a 5000 bytes (límite de `detect_sentiment`).
+- Retorna `{sentiment, scores{positive,negative,neutral,mixed}, confidence, raw}`.
+- `app/services/aws/__init__.py`: exporta `analyze_sentiment`.
+
+**Tests (`tests/test_comprehend_client.py`):** texto vacío/corto neutro, texto normal con scores, y truncado a 5000 bytes.
+
+**Decisión / simplificación:** para la demo se analiza el sentimiento de los primeros 5000 bytes del transcript (no se hace chunking del audio completo).
+
+**Verificación:** `python -m py_compile` OK. pytest pendiente de entorno (Checkpoint Task 6).
+
+---
+
+## Checkpoint Task 6 — Verificar clientes AWS individuales
+Bloque de clientes AWS (Tasks 1–5) implementado y commiteado localmente. **Pendiente:** correr la suite `pytest` en un entorno con dependencias instaladas (Docker o venv con `pip install -r requirements.txt`). Hasta entonces solo se validó sintaxis (`py_compile`).
 
 ### Task 7 — Pipeline Orchestrator
 _Pendiente._

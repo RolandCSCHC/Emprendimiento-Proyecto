@@ -12,7 +12,7 @@ from app.services.aws.rekognition_client import (
     start_person_tracking,
 )
 from app.services.aws.transcribe_client import get_transcription_result, start_transcription
-from app.services.aws.comprehend_client import analyze_text_sentiment
+from app.services.aws.comprehend_client import analyze_sentiment
 
 __all__ = [
     "check_object_exists",
@@ -24,5 +24,5 @@ __all__ = [
     "get_face_detection_result",
     "start_transcription",
     "get_transcription_result",
-    "analyze_text_sentiment",
+    "analyze_sentiment",
 ]

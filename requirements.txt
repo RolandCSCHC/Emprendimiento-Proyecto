@@ -5,5 +5,11 @@ Flask-Migrate>=4.0
 psycopg2-binary>=2.9
 gunicorn>=22.0
 
-# Descomentar al implementar la fase AWS:
-# boto3>=1.34
+# Fase AWS
+boto3>=1.34
+requests>=2.31
+cryptography>=42.0  # validación de firma de mensajes SNS
+
+# Tests
+pytest>=8.0
+moto>=5.0

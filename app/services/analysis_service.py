@@ -19,12 +19,14 @@ def enqueue_analysis(clase_id: str) -> None:
     Args:
         clase_id: UUID de la clase en la tabla ``clases``.
     """
-    # from flask import current_app
-    # if not current_app.config.get("AWS_ENABLED"):
-    #     return
-    # from app.services.analysis.pipeline import start_analysis_for_clase
-    # start_analysis_for_clase(clase_id)
-    pass
+    from flask import current_app
+
+    if not current_app.config.get("AWS_ENABLED"):
+        return
+
+    from app.services.analysis.pipeline import start_analysis_for_clase
+
+    start_analysis_for_clase(clase_id)
 
 
 def poll_pending_jobs() -> int:

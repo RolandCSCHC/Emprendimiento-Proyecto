@@ -379,6 +379,18 @@ a:hover {
   border: 1px solid var(--accent);
 }
 
+.badge-success {
+  background: rgba(46, 204, 113, 0.2);
+  color: #2ecc71;
+  border: 1px solid #2ecc71;
+}
+
+.badge-error {
+  background: rgba(231, 76, 60, 0.2);
+  color: #e74c3c;
+  border: 1px solid #e74c3c;
+}
+
 .empty-state {
   text-align: center;
   padding: 3rem;

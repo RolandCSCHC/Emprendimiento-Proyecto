@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 
+import click
 from flask import Flask
 from dotenv import load_dotenv
 
@@ -22,6 +23,8 @@ def create_app(config_name: str | None = None) -> Flask:
 
     flask_app.config["UPLOAD_FOLDER"].mkdir(parents=True, exist_ok=True)
 
+    _validate_aws_config(flask_app)
+
     db.init_app(flask_app)
     migrate.init_app(flask_app, db)
 
@@ -33,6 +36,28 @@ def create_app(config_name: str | None = None) -> Flask:
     register_cli(flask_app)
 
     return flask_app
+
+
+def _validate_aws_config(flask_app: Flask) -> None:
+    """
+    Si AWS está habilitado pero falta configuración requerida (AWS_REGION o
+    S3_BUCKET), loguea un error y deshabilita el pipeline automáticamente
+    para que la app siga funcionando (requisito 14.3).
+    """
+    if not flask_app.config.get("AWS_ENABLED"):
+        return
+
+    faltantes = [
+        nombre
+        for nombre in ("AWS_REGION", "S3_BUCKET")
+        if not flask_app.config.get(nombre)
+    ]
+    if faltantes:
+        flask_app.logger.error(
+            "AWS_ENABLED=true pero falta(n) %s. Se deshabilita el pipeline AWS.",
+            ", ".join(faltantes),
+        )
+        flask_app.config["AWS_ENABLED"] = False
 
 
 def register_cli(flask_app: Flask) -> None:
@@ -52,6 +77,27 @@ def register_cli(flask_app: Flask) -> None:
 
         seed_database()
         print("Seed completado.")
+
+    @flask_app.cli.command("aws-analyze")
+    @click.argument("clase_id", required=False)
+    def aws_analyze_command(clase_id):
+        """Encola el análisis AWS de una clase, o de todas las pendientes si no se pasa id."""
+        from app.models import Clase
+        from app.services.analysis_service import enqueue_analysis
+
+        if not flask_app.config.get("AWS_ENABLED"):
+            print("AWS_ENABLED=false: no se encoló nada. Activa AWS en el .env.")
+            return
+
+        if clase_id:
+            enqueue_analysis(clase_id)
+            print(f"Análisis encolado para la clase {clase_id}.")
+            return
+
+        clases = Clase.query.filter_by(status="pendiente_analisis").all()
+        for clase in clases:
+            enqueue_analysis(str(clase.id))
+        print(f"Análisis encolado para {len(clases)} clase(s) pendiente(s).")
 
     @flask_app.cli.command("aws-poll-jobs")
     def aws_poll_jobs_command():

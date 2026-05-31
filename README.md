@@ -39,7 +39,7 @@ docker compose up
 2. Tras crear la clase, verás el detalle con las métricas en estado pendiente.
 3. En **Dashboard** aparecen todas las clases registradas.
 
-Al arrancar, la app crea automáticamente las tablas y datos de demostración (1 gimnasio, 3 profesores, 4 tipos de clase).
+Al arrancar, la app crea automáticamente las tablas y datos de demostración (1 gimnasio, 3 profesores, 4 tipos de clase y 4 clases de ejemplo enlazadas a videos en S3).
 
 ## Comandos útiles
 
@@ -97,7 +97,7 @@ Copia `.env.example` a `.env` antes del primer `docker compose up`:
 | `tipos_clase` | Yoga, Pilates, Spinning, etc. |
 | `clases` | Instancia concreta de una clase |
 | `archivos_media` | Videos y audios subidos |
-| `analisis_jobs` | Jobs de análisis AWS (pendientes) |
+| `analisis_jobs` | Jobs de análisis AWS (Rekognition/Transcribe) |
 | `metricas` | Las 5 métricas del dashboard |
 
 ## Métricas
@@ -114,8 +114,8 @@ Copia `.env.example` a `.env` antes del primer `docker compose up`:
 app/
 ├── routes/              # Pantallas y webhooks
 ├── services/
-│   ├── aws/             # Clientes S3, Rekognition, Transcribe (esqueleto)
-│   ├── analysis/        # Pipeline, poller, extractores de métricas (esqueleto)
+│   ├── aws/             # Clientes S3, Rekognition, Transcribe, Comprehend
+│   ├── analysis/        # Pipeline, poller, extractores de métricas
 │   ├── analysis_service.py   # Punto de entrada: enqueue_analysis()
 │   ├── class_service.py
 │   └── upload_service.py
@@ -127,56 +127,61 @@ Dockerfile
 
 ---
 
-## Fase AWS — integración con análisis en la nube (pendiente)
+## Fase AWS — análisis en la nube (implementada ✅)
 
-La app ya guarda clases, archivos y jobs en PostgreSQL. La conexión con AWS **no está implementada**; solo existe un **esqueleto** de archivos con docstrings para guiar el desarrollo.
+El pipeline está **implementado y probado contra AWS real**. Procesa los videos de las
+clases (almacenados en S3) y genera las 5 métricas del dashboard automáticamente.
 
-### Punto de entrada actual
+> 📚 Documentación detallada en `docs/`:
+> - **`PRESENTACION-AWS.md`** — cómo funciona + guion de demo.
+> - **`AVANCES-AWS.md`** — bitácora técnica de la implementación.
+> - **`DEPLOY.md`** — qué configurar para producción (rol IAM, env vars, etc.).
 
-Tras crear una clase (o reemplazar video/audio al editar), se llama a:
+### Cómo se activa
+
+En `.env`: `AWS_ENABLED=true` + credenciales (o rol IAM) + `S3_BUCKET` + `AWS_REGION`.
+Con `AWS_ENABLED=false` la app funciona normal sin tocar AWS (los archivos se guardan local).
+
+### Flujo real
 
 ```text
-app/services/analysis_service.py  →  enqueue_analysis(clase_id)
+1. Usuario sube clase  (o el video ya está en S3 por cámaras/grabaciones)
+2. Con AWS activo, el archivo se sube a S3 (no a disco) y se setea s3_bucket/s3_key
+3. enqueue_analysis(clase_id)  →  pipeline pone la clase en "analizando"
+4. pipeline lanza jobs asíncronos: Rekognition FaceDetection + Transcribe
+5. flask aws-poll-jobs  (o webhook SNS) consulta el estado en AWS
+6. al terminar, metrics_extractor (+ Comprehend) calcula las 5 métricas
+7. clase.status = completada  →  el dashboard muestra los valores reales
 ```
 
-Hoy `enqueue_analysis` no hace nada (`pass`). Cuando actives AWS, descomenta la llamada a `start_analysis_for_clase` dentro de ese archivo.
-
-### Flujo objetivo
-
-```text
-1. Usuario sube clase
-2. Flask guarda archivos en disco + registros en BD (analisis_jobs = pending)
-3. enqueue_analysis(clase_id)
-4. pipeline: sube archivos a S3 → lanza Rekognition / Transcribe
-5. Jobs AWS corren en segundo plano (minutos)
-6. job_poller o webhook SNS recibe el resultado
-7. metrics_extractor escribe las 5 métricas + clase.status = completada
-8. Dashboard muestra valores reales
-```
-
-### Archivos del esqueleto
+### Módulos del pipeline
 
 | Archivo | Responsabilidad |
 |---------|-----------------|
-| `app/services/analysis_service.py` | Orquestador: `enqueue_analysis`, `poll_pending_jobs` |
-| `app/services/analysis/pipeline.py` | Subir a S3 y disparar jobs por cada archivo |
-| `app/services/analysis/job_poller.py` | Consultar jobs pendientes y guardar `raw_response` |
-| `app/services/analysis/metrics_extractor.py` | Convertir JSON de AWS → tabla `metricas` |
-| `app/services/aws/s3_client.py` | Subida de media a S3 |
-| `app/services/aws/rekognition_client.py` | Análisis de video (asistencia, permanencia, etc.) |
-| `app/services/aws/transcribe_client.py` | Transcripción de audio (claridad, habla) |
-| `app/services/aws/comprehend_client.py` | Sentimiento del texto (opcional) |
-| `app/routes/webhooks.py` | `POST /webhooks/aws/sns` para notificaciones SNS |
+| `app/services/analysis_service.py` | Punto de entrada: `enqueue_analysis`, `poll_pending_jobs` |
+| `app/services/analysis/pipeline.py` | Valida S3 y lanza los jobs AWS por cada archivo |
+| `app/services/analysis/job_poller.py` | Consulta jobs, guarda resultados y dispara métricas |
+| `app/services/analysis/metrics_extractor.py` | Convierte respuestas de AWS → tabla `metricas` |
+| `app/services/aws/s3_client.py` | Subir, verificar y firmar URLs de objetos en S3 |
+| `app/services/aws/rekognition_client.py` | FaceDetection (emociones + conteo de caras) |
+| `app/services/aws/transcribe_client.py` | Transcripción de audio (con timestamps) |
+| `app/services/aws/comprehend_client.py` | Sentimiento del texto transcrito |
+| `app/routes/webhooks.py` | `POST /webhooks/aws/sns` (con validación de firma) |
 
 ### Servicios AWS por métrica
 
-| Métrica | Servicio AWS sugerido |
-|---------|------------------------|
-| Asistencia | Rekognition Video (detección de personas) |
-| Permanencia | Rekognition Video (tracking en el tiempo) |
-| Claridad de Instrucciones | Transcribe (+ reglas sobre el texto) |
-| Tiempo Hablando vs. Demostrando | Transcribe + Rekognition |
-| Satisfacción del Alumno | Rekognition (rostros/engagement) o Comprehend |
+| Métrica | Servicio AWS |
+|---------|--------------|
+| Asistencia | Rekognition FaceDetection (pico de caras por tercio del video)* |
+| Permanencia | Rekognition FaceDetection (caras al final vs. inicio)* |
+| Claridad de Instrucciones | Transcribe (palabras/min, frases, pausas) |
+| Tiempo Hablando vs. Demostrando | Transcribe (segmentos con voz vs. silencio) |
+| Satisfacción del Alumno | Rekognition FaceDetection (emociones) + Comprehend (sentimiento) |
+
+> *AWS **descontinuó Rekognition People Pathing** (tracking de personas) el 31-oct-2025, que
+> era la fuente original de asistencia/permanencia. Se reemplazó por conteo de caras de
+> FaceDetection. Para producción, lo más preciso sería Label Detection ("Person") o
+> YOLOv9 + ByteTrack en SageMaker (ver `DEPLOY.md`).
 
 ### Tablas de BD que usarás
 
@@ -189,64 +194,40 @@ Hoy `enqueue_analysis` no hace nada (`pass`). Cuando actives AWS, descomenta la 
 | `metricas.valor_numerico`, `detalle` | Resultado final para el dashboard |
 | `clases.status` | pendiente_analisis → analizando → completada / error |
 
-### Variables de entorno (cuando implementes)
-
-Añade a tu `.env` (ver `.env.example`):
+### Variables de entorno (ver `.env.example`)
 
 | Variable | Descripción |
 |----------|-------------|
-| `AWS_ENABLED` | `true` para activar el pipeline (default: `false`) |
-| `AWS_REGION` | Región, ej. `us-east-1` |
-| `AWS_ACCESS_KEY_ID` | Credencial IAM (o usa rol en ECS/EC2) |
-| `AWS_SECRET_ACCESS_KEY` | Credencial IAM |
-| `S3_BUCKET` | Bucket para videos y audios |
+| `AWS_ENABLED` | `true` activa el pipeline (default: `false`) |
+| `AWS_REGION` | Región, ej. `us-west-2` |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Credenciales IAM (en producción: **dejar vacías y usar rol IAM**) |
+| `S3_BUCKET` | Bucket con los videos |
+| `TRANSCRIBE_LANGUAGE_CODE` | Idioma del audio (ej. `en-US`) |
+| `SNS_TOPIC_ARN` / `REKOGNITION_SNS_ROLE_ARN` | Opcionales, solo si usas webhook SNS |
 
-En producción preferible: **rol IAM** del contenedor en lugar de keys en `.env`.
-
-### Dependencia Python
-
-Descomenta en `requirements.txt`:
-
-```text
-boto3>=1.34
-```
-
-Reconstruye la imagen: `docker compose up --build`.
-
-### Orden de implementación recomendado
-
-1. **S3** — `s3_client.upload_archivo_to_s3`; rellenar `s3_bucket` y `s3_key`.
-2. **Transcribe** — primer job real; guardar `raw_response` en `analisis_jobs`.
-3. **Extractor** — implementar `extract_claridad_instrucciones` y probar en dashboard.
-4. **Rekognition** — video; métricas de asistencia y permanencia.
-5. **Métricas compuestas** — hablando vs. demostrando y satisfacción.
-6. **Poller o webhook** — `flask aws-poll-jobs` o `POST /webhooks/aws/sns`.
-7. Activar en `analysis_service.enqueue_analysis` con `AWS_ENABLED=true`.
-
-### Comandos útiles (fase AWS)
+### Comandos del pipeline
 
 ```bash
-# Consultar jobs pendientes (cuando job_poller esté implementado)
+# Disparar el análisis de las clases pendientes (o de una sola por id)
+docker compose exec web flask aws-analyze
+docker compose exec web flask aws-analyze <clase_id>
+
+# Consultar el estado de los jobs y calcular métricas al terminar
 docker compose exec web flask aws-poll-jobs
 ```
 
-### Consultar resultados sin Celery
+### Detección de jobs terminados
 
-No hace falta Celery ni colas de tareas en el servidor: AWS procesa en la nube. Basta con:
+Los jobs de Rekognition/Transcribe son asíncronos. Dos formas de cerrarlos:
 
-- `docker compose exec web flask aws-poll-jobs` (manual o con cron), o
-- Webhook SNS en `POST /webhooks/aws/sns`.
+- **Polling**: `flask aws-poll-jobs` (manual, o con cron / EventBridge en producción).
+- **Webhook SNS**: `POST /webhooks/aws/sns` (menor latencia; requiere URL pública HTTPS).
 
-Opcional en producción: **Amazon EventBridge** + **Lambda** en lugar de polling desde Flask.
+No hace falta Celery ni colas: AWS procesa en la nube.
 
-### Configuración en AWS (consola)
+### Permisos AWS necesarios
 
-1. Crear bucket S3 (ej. `gymsight-media`) con CORS si el navegador sube directo (opcional).
-2. Crear usuario/rol IAM con permisos: `s3:PutObject`, `rekognition:*`, `transcribe:*`.
-3. (Opcional) Topic SNS + suscripción HTTPS a `https://tu-dominio/webhooks/aws/sns` para jobs asíncronos.
+El usuario o rol IAM necesita: `s3:GetObject`, `s3:PutObject`, `rekognition:*`
+(o al menos FaceDetection), `transcribe:*` y `comprehend:DetectSentiment`.
 
-### Qué no hace falta cambiar
-
-- Modelos de las 7 tablas (ya preparados).
-- Plantillas del dashboard (ya muestran métricas `completed` con valor).
-- Flujo de subida/edición de clases (solo se activa `enqueue_analysis`).
+Para todo lo de producción (rol IAM, RDS, secrets, etc.) ver **`docs/DEPLOY.md`**.

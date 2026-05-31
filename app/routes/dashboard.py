@@ -16,6 +16,7 @@ def _status_label(status: str) -> str:
         "pendiente_analisis": "Pendiente de análisis",
         "analizando": "Analizando",
         "completada": "Completada",
+        "completada_parcial": "Completada parcial",
         "error": "Error",
     }
     return labels.get(status, status)

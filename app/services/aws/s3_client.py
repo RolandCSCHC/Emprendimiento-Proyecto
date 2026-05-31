@@ -2,40 +2,39 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from flask import current_app
 
-from app.models import ArchivoMedia
+from app.services.aws.boto_session import get_s3_client
 
 
-def upload_archivo_to_s3(archivo: ArchivoMedia, local_path: str) -> tuple[str, str]:
-    """
-    Sube un archivo local a S3 y devuelve (bucket, key).
+def generate_presigned_upload_url(bucket: str, key: str, expires_in: int | None = None) -> str:
+    """Genera una URL firmada para PUT directo al objeto S3."""
+    if expires_in is None:
+        expires_in = current_app.config["PRESIGNED_URL_EXPIRES"]
+    client = get_s3_client()
+    return client.generate_presigned_url(
+        "put_object",
+        Params={"Bucket": bucket, "Key": key},
+        ExpiresIn=expires_in,
+        HttpMethod="PUT",
+    )
 
-    Pasos a implementar:
-    1. Crear cliente boto3 S3 con credenciales de app.config.
-    2. Generar s3_key: ej. ``clases/{clase_id}/{tipo}.{extension}``.
-    3. Subir el fichero con ``upload_file`` o ``put_object``.
-    4. Actualizar ``archivo.s3_bucket`` y ``archivo.s3_key`` en la sesión DB.
 
-    Args:
-        archivo: Registro ArchivoMedia asociado a la clase.
-        local_path: Ruta absoluta del fichero en disco (UPLOAD_FOLDER).
+def check_object_exists(bucket: str, key: str) -> bool:
+    """Devuelve True si el objeto existe en S3, False en 404."""
+    import botocore.exceptions
 
-    Returns:
-        Tupla (bucket, key) del objeto subido.
-    """
-    raise NotImplementedError("Integración S3 pendiente. Ver README — Fase AWS.")
+    client = get_s3_client()
+    try:
+        client.head_object(Bucket=bucket, Key=key)
+        return True
+    except botocore.exceptions.ClientError as exc:
+        code = exc.response["Error"]["Code"]
+        if code in ("404", "NoSuchKey", "NotFound"):
+            return False
+        raise
 
 
 def get_s3_uri(bucket: str, key: str) -> str:
     """Devuelve la URI s3:// usada por Rekognition y Transcribe."""
     return f"s3://{bucket}/{key}"
-
-
-def generate_presigned_url(bucket: str, key: str, expires_in: int = 3600) -> Optional[str]:
-    """
-    Opcional: URL firmada para descargar o previsualizar media desde el dashboard.
-
-    Útil si no quieres servir archivos directamente desde Flask.
-    """
-    raise NotImplementedError("Integración S3 pendiente. Ver README — Fase AWS.")

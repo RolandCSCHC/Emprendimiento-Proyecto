@@ -13,6 +13,7 @@ dashboard_bp = Blueprint("dashboard", __name__, url_prefix="/dashboard")
 
 def _status_label(status: str) -> str:
     labels = {
+        "awaiting_upload": "Esperando subida",
         "pendiente_analisis": "Pendiente de análisis",
         "analizando": "Analizando",
         "completada": "Completada",

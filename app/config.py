@@ -36,12 +36,14 @@ class Config:
         "satisfaccion_alumno": "Satisfacción del Alumno",
     }
 
-    # AWS (fase futura — ver README)
+    # AWS
     AWS_ENABLED = os.environ.get("AWS_ENABLED", "false").lower() == "true"
     AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
     AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID")
     AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
     S3_BUCKET = os.environ.get("S3_BUCKET", "")
+    ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "http://localhost:5001").split(",")
+    PRESIGNED_URL_EXPIRES = int(os.environ.get("PRESIGNED_URL_EXPIRES", 900))
 
 
 class DevelopmentConfig(Config):

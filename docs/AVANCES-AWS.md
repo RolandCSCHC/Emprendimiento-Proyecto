@@ -35,7 +35,7 @@ main
 | 9 | Webhook SNS | 📦 Commit local | `task-9-webhook` | — |
 | 10 | *Checkpoint — orquestación y completitud* | ⬜ Pendiente | (gate, sin PR) | — |
 | 11 | Metrics Extractor — Asistencia y Permanencia | 📦 Commit local | `task-11-metrics-asistencia` | — |
-| 12 | Metrics Extractor — Claridad y Ratio habla/demo | ⬜ Pendiente | — | — |
+| 12 | Metrics Extractor — Claridad y Ratio habla/demo | 📦 Commit local | `task-12-metrics-claridad` | — |
 | 13 | Metrics Extractor — Satisfacción del Alumno | ⬜ Pendiente | — | — |
 | 14 | `apply_metrics_to_clase` + estado de clase | ⬜ Pendiente | — | — |
 | 15 | *Checkpoint — extracción de métricas* | ⬜ Pendiente | (gate, sin PR) | — |
@@ -196,7 +196,16 @@ docker run --rm --entrypoint pytest gymsight-test -v
 **Verificación:** `pytest tests/test_metrics_asistencia.py` → 5 passed.
 
 ### Task 12 — Metrics Extractor: Claridad y Ratio habla/demostración
-_Pendiente._
+📦 Commit local (rama `task-12-metrics-claridad`, sobre `task-11-metrics-asistencia`).
+
+**Qué se hizo (`metrics_extractor.py`):**
+- Helpers: `_transcribe_words` (palabras pronunciadas con start/end/conf), `_rango_score` (100 dentro del rango, decae fuera).
+- `extract_claridad_instrucciones`: WPM, longitud de frase (separadas por pausa ≥1.5s) y pausas/min → score 0-100 (0.5·WPM + 0.25·frase + 0.25·pausas); rango óptimo 120-160 WPM.
+- `extract_tiempo_hablando_vs_demostrando`: fusiona palabras (gap ≤0.5s) en segmentos de habla; calcula segundos hablando/silencio y % sobre la duración (de PersonTracking o última palabra).
+
+**Tests (`tests/test_metrics_claridad.py`):** sin palabras, ritmo óptimo (score ≥90), ritmo lento (<50), tiempo con duración de video, y usando la última palabra. **6/6 pasan.**
+
+**Verificación:** `pytest tests/test_metrics_claridad.py` → 6 passed.
 
 ### Task 13 — Metrics Extractor: Satisfacción del Alumno
 _Pendiente._

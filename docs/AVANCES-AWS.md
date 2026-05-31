@@ -31,7 +31,7 @@ main
 | 5 | Comprehend Client | 📦 Commit local | `task-5-comprehend` | — |
 | 6 | *Checkpoint — verificar clientes AWS* | ⬜ Pendiente | (gate, sin PR) | — |
 | 7 | Pipeline Orchestrator | 📦 Commit local | `task-7-pipeline` | — |
-| 8 | Job Poller | ⬜ Pendiente | — | — |
+| 8 | Job Poller | 📦 Commit local | `task-8-job-poller` | — |
 | 9 | Webhook SNS | ⬜ Pendiente | — | — |
 | 10 | *Checkpoint — orquestación y completitud* | ⬜ Pendiente | (gate, sin PR) | — |
 | 11 | Metrics Extractor — Asistencia y Permanencia | ⬜ Pendiente | — | — |
@@ -155,7 +155,18 @@ docker run --rm --entrypoint pytest gymsight-test -v
 **Verificación:** sintaxis OK. pytest con DB se corre en el Checkpoint 10.
 
 ### Task 8 — Job Poller
-_Pendiente._
+📦 Commit local (rama `task-8-job-poller`, sobre `task-7-pipeline`).
+
+**Qué se hizo (`app/services/analysis/job_poller.py`):**
+- `poll_pending_jobs()`: consulta jobs `submitted`/`in_progress`, los actualiza y retorna el conteo. Mapea `servicio` → getter del cliente AWS (`_GETTERS`).
+- `_refresh_job`: SUCCEEDED → guarda `raw_response` (el dict del getter) + `completed`; FAILED → `error_mensaje` + `failed` + clase a `error`; si no, `in_progress`.
+- `_maybe_extract_metrics`: cuando **todos** los jobs de una clase están `completed`, arma `combined_raw_data` (llaveado por servicio) y llama `apply_metrics_to_clase`.
+- `process_completed_job(id)`: refresca un job puntual (webhook SNS) y dispara métricas si corresponde.
+- El comando `flask aws-poll-jobs` (ya registrado) ahora ejecuta sin `NotImplementedError`.
+
+**Tests (`tests/test_job_poller.py`):** en progreso, completado (guarda raw + dispara métricas), fallido (clase a error), y `process_completed_job`. Mockean los getters y `apply_metrics_to_clase`.
+
+**Verificación:** sintaxis OK. pytest con DB se corre en el Checkpoint 10.
 
 ### Task 9 — Webhook SNS
 _Pendiente._

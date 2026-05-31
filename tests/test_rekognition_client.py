@@ -39,18 +39,48 @@ def test_get_person_tracking_in_progress(fake_client):
     }
     result = rekognition_client.get_person_tracking_result("pt-123")
     assert result["status"] == "IN_PROGRESS"
-    assert result["persons"] == []
+    assert result["persons"] == {}
 
 
-def test_get_person_tracking_paginates(fake_client):
+def test_get_person_tracking_aggregates_and_paginates(fake_client):
+    # 2 páginas; persona 0 aparece en ms 0 y 5000 -> first/last agregados
     fake_client.get_person_tracking.side_effect = [
-        {"JobStatus": "SUCCEEDED", "Persons": [{"Person": {"Index": 0}}], "NextToken": "t"},
-        {"JobStatus": "SUCCEEDED", "Persons": [{"Person": {"Index": 1}}]},
+        {
+            "JobStatus": "SUCCEEDED",
+            "VideoMetadata": {"DurationMillis": 6000},
+            "Persons": [{"Timestamp": 0, "Person": {"Index": 0, "Face": {"Confidence": 90}}}],
+            "NextToken": "t",
+        },
+        {
+            "JobStatus": "SUCCEEDED",
+            "Persons": [
+                {"Timestamp": 5000, "Person": {"Index": 0, "Face": {"Confidence": 90}}},
+                {"Timestamp": 1000, "Person": {"Index": 1}},
+            ],
+        },
     ]
     result = rekognition_client.get_person_tracking_result("pt-123")
     assert result["status"] == "SUCCEEDED"
-    assert len(result["persons"]) == 2
-    assert "NextToken" not in result["raw"]
+    assert result["video_duration_ms"] == 6000
+    assert set(result["persons"].keys()) == {"0", "1"}
+    assert result["persons"]["0"] == {"first_ms": 0, "last_ms": 5000, "conf": 0.9}
+
+
+def test_get_face_detection_aggregates_emotions(fake_client):
+    fake_client.get_face_detection.return_value = {
+        "JobStatus": "SUCCEEDED",
+        "Faces": [
+            {"Face": {"Confidence": 98, "Emotions": [
+                {"Type": "HAPPY", "Confidence": 80}, {"Type": "CALM", "Confidence": 20}]}},
+            {"Face": {"Confidence": 96, "Emotions": [{"Type": "HAPPY", "Confidence": 60}]}},
+        ],
+    }
+    result = rekognition_client.get_face_detection_result("fd-456")
+    assert result["status"] == "SUCCEEDED"
+    assert result["face_count"] == 2
+    assert result["emotions"]["HAPPY"] == 140
+    assert result["emotions"]["CALM"] == 20
+    assert result["avg_confidence"] == 0.97
 
 
 def test_get_face_detection_failed(fake_client):

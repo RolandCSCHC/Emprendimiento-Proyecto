@@ -30,17 +30,12 @@ def _word(start, end):
 def _combined():
     return {
         SERVICE_PERSON_TRACKING: {
-            "persons": [
-                {"Timestamp": 0, "Person": {"Index": 0, "Face": {"Confidence": 95}}},
-                {"Timestamp": 10000, "Person": {"Index": 0, "Face": {"Confidence": 95}}},
-            ],
-            "raw": {"VideoMetadata": {"DurationMillis": 10000}},
+            "persons": {"0": {"first_ms": 0, "last_ms": 10000, "conf": 0.95}},
+            "video_duration_ms": 10000,
         },
         SERVICE_FACE_DETECTION: {
-            "faces": [
-                {"Timestamp": 0, "Face": {"Confidence": 98, "Emotions": [
-                    {"Type": "HAPPY", "Confidence": 90}, {"Type": "CALM", "Confidence": 10}]}}
-            ]
+            "emotions": {"HAPPY": 90.0, "CALM": 10.0},
+            "avg_confidence": 0.98,
         },
         SERVICE_TRANSCRIBE: {
             "transcript": "hola clase de pilates",

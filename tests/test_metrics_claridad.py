@@ -25,8 +25,8 @@ def _combined(items, duration_ms=None):
     combined = {SERVICE_TRANSCRIBE: {"raw": {"results": {"items": items}}}}
     if duration_ms is not None:
         combined[SERVICE_PERSON_TRACKING] = {
-            "persons": [],
-            "raw": {"VideoMetadata": {"DurationMillis": duration_ms}},
+            "persons": {},
+            "video_duration_ms": duration_ms,
         }
     return combined
 

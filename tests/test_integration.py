@@ -73,19 +73,13 @@ def test_flujo_completo(app, db_session, monkeypatch):
     # --- poll: mockear getters (todos SUCCEEDED) y Comprehend ---
     pt_result = {
         "status": "SUCCEEDED",
-        "raw": {"VideoMetadata": {"DurationMillis": 10000}},
-        "persons": [
-            {"Timestamp": 0, "Person": {"Index": 0, "Face": {"Confidence": 95}}},
-            {"Timestamp": 10000, "Person": {"Index": 0, "Face": {"Confidence": 95}}},
-        ],
+        "persons": {"0": {"first_ms": 0, "last_ms": 10000, "conf": 0.95}},
+        "video_duration_ms": 10000,
     }
     fd_result = {
         "status": "SUCCEEDED",
-        "raw": {},
-        "faces": [
-            {"Timestamp": 0, "Face": {"Confidence": 98, "Emotions": [
-                {"Type": "HAPPY", "Confidence": 90}, {"Type": "CALM", "Confidence": 10}]}}
-        ],
+        "emotions": {"HAPPY": 90.0, "CALM": 10.0},
+        "avg_confidence": 0.98,
     }
     tr_result = {
         "status": "SUCCEEDED",

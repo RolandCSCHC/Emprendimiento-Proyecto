@@ -46,33 +46,14 @@ def _avg(values: list[float]) -> Optional[float]:
     return round(sum(values) / len(values), 4) if values else None
 
 
-def _person_detections(combined: dict[str, Any]) -> list[dict[str, Any]]:
-    pt = combined.get(SERVICE_PERSON_TRACKING) or {}
-    return pt.get("persons") or []
+def _persons_summary(combined: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Resumen compacto por persona: ``{indice: {first_ms, last_ms, conf}}``."""
+    return (combined.get(SERVICE_PERSON_TRACKING) or {}).get("persons") or {}
 
 
 def _video_duration_ms(combined: dict[str, Any]) -> Optional[int]:
-    pt = combined.get(SERVICE_PERSON_TRACKING) or {}
-    raw = pt.get("raw") or {}
-    return (raw.get("VideoMetadata") or {}).get("DurationMillis")
-
-
-def _index_timeline(persons: list[dict[str, Any]]) -> dict[int, dict[str, Any]]:
-    """Por PersonIndex: primera/última aparición (ms) y confianzas (0-1)."""
-    timeline: dict[int, dict[str, Any]] = {}
-    for det in persons:
-        person = det.get("Person", {})
-        idx = person.get("Index")
-        if idx is None:
-            continue
-        ts = det.get("Timestamp", 0)
-        entry = timeline.setdefault(idx, {"first": ts, "last": ts, "confianzas": []})
-        entry["first"] = min(entry["first"], ts)
-        entry["last"] = max(entry["last"], ts)
-        conf = (person.get("Face") or {}).get("Confidence")
-        if conf is not None:
-            entry["confianzas"].append(conf / 100.0)
-    return timeline
+    """Duración del video (ms) tomada del resumen de PersonTracking, si existe."""
+    return (combined.get(SERVICE_PERSON_TRACKING) or {}).get("video_duration_ms")
 
 
 def _transcribe_words(combined: dict[str, Any]) -> list[dict[str, Any]]:
@@ -117,23 +98,6 @@ _EMOCIONES_POSITIVAS = ("HAPPY", "SURPRISED")
 _EMOCIONES_NEGATIVAS = ("SAD", "ANGRY")
 
 
-def _agregar_emociones(faces: list[dict[str, Any]]) -> tuple[dict[str, float], list[float]]:
-    """Suma la confianza por tipo de emoción y recolecta confianzas de rostro (0-1)."""
-    emociones: dict[str, float] = {}
-    face_confs: list[float] = []
-    for face_item in faces:
-        face = face_item.get("Face") or {}
-        conf = face.get("Confidence")
-        if conf is not None:
-            face_confs.append(conf / 100.0)
-        for emo in face.get("Emotions") or []:
-            tipo, c = emo.get("Type"), emo.get("Confidence")
-            if tipo is None or c is None:
-                continue
-            emociones[tipo] = emociones.get(tipo, 0.0) + c
-    return emociones, face_confs
-
-
 def _combinar_scores(
     visual: Optional[float], textual: Optional[float]
 ) -> tuple[Optional[float], float, float]:
@@ -150,22 +114,27 @@ def _combinar_scores(
 # --------------------------------------------------------------------------- #
 # Métricas
 # --------------------------------------------------------------------------- #
+def _sorted_persons(persons: dict[str, dict[str, Any]]):
+    """Itera (indice_int, datos) ordenado por índice numérico."""
+    return sorted(((int(idx), e) for idx, e in persons.items()), key=lambda kv: kv[0])
+
+
 def extract_asistencia(raw_data: dict[str, Any]) -> dict[str, Any]:
     """Número de personas únicas detectadas (Rekognition PersonTracking)."""
-    timeline = _index_timeline(_person_detections(raw_data))
+    persons = _persons_summary(raw_data)
 
     personas: list[dict[str, Any]] = []
     confs: list[float] = []
-    for idx, e in sorted(timeline.items()):
-        conf = _avg(e["confianzas"])
+    for idx, e in _sorted_persons(persons):
+        conf = e.get("conf")
         personas.append(
-            {"person_index": idx, "primera_aparicion_ms": e["first"], "confianza": conf}
+            {"person_index": idx, "primera_aparicion_ms": e.get("first_ms"), "confianza": conf}
         )
         if conf is not None:
             confs.append(conf)
 
     return {
-        "valor_numerico": len(timeline),
+        "valor_numerico": len(persons),
         "unidad": "personas",
         "confianza": _avg(confs),
         "detalle": {"personas_detectadas": personas},
@@ -174,13 +143,13 @@ def extract_asistencia(raw_data: dict[str, Any]) -> dict[str, Any]:
 
 def extract_permanencia(raw_data: dict[str, Any]) -> dict[str, Any]:
     """% de personas presentes ≥80% de la duración del video."""
-    persons = _person_detections(raw_data)
-    timeline = _index_timeline(persons)
-    duracion = _video_duration_ms(raw_data) or max(
-        (e["last"] for e in timeline.values()), default=0
+    pt = raw_data.get(SERVICE_PERSON_TRACKING) or {}
+    persons = pt.get("persons") or {}
+    duracion = pt.get("video_duration_ms") or max(
+        (e.get("last_ms", 0) for e in persons.values()), default=0
     )
 
-    if not timeline or not duracion:
+    if not persons or not duracion:
         return {
             "valor_numerico": 0,
             "unidad": "porcentaje",
@@ -191,8 +160,10 @@ def extract_permanencia(raw_data: dict[str, Any]) -> dict[str, Any]:
     detalle_timeline: list[dict[str, Any]] = []
     confs: list[float] = []
     permanecieron = 0
-    for idx, e in sorted(timeline.items()):
-        presencia_pct = min(100.0, round((e["last"] - e["first"]) / duracion * 100, 1))
+    for idx, e in _sorted_persons(persons):
+        presencia_pct = min(
+            100.0, round((e["last_ms"] - e["first_ms"]) / duracion * 100, 1)
+        )
         quedo = presencia_pct >= UMBRAL_PERMANENCIA_PCT
         if quedo:
             permanecieron += 1
@@ -200,15 +171,14 @@ def extract_permanencia(raw_data: dict[str, Any]) -> dict[str, Any]:
             {
                 "person_index": idx,
                 "presencia_pct": presencia_pct,
-                "salida_ms": None if quedo else e["last"],
+                "salida_ms": None if quedo else e["last_ms"],
             }
         )
-        conf = _avg(e["confianzas"])
-        if conf is not None:
-            confs.append(conf)
+        if e.get("conf") is not None:
+            confs.append(e["conf"])
 
     return {
-        "valor_numerico": round(permanecieron / len(timeline) * 100, 1),
+        "valor_numerico": round(permanecieron / len(persons) * 100, 1),
         "unidad": "porcentaje",
         "confianza": _avg(confs),
         "detalle": {
@@ -307,11 +277,12 @@ def extract_tiempo_hablando_vs_demostrando(raw_data: dict[str, Any]) -> dict[str
 
 def extract_satisfaccion_alumno(raw_data: dict[str, Any]) -> dict[str, Any]:
     """Score compuesto: emociones faciales (70%) + sentimiento del texto (30%)."""
-    faces = (raw_data.get(SERVICE_FACE_DETECTION) or {}).get("faces") or []
+    fd = raw_data.get(SERVICE_FACE_DETECTION) or {}
+    emociones_sum = fd.get("emotions") or {}
+    avg_face_conf = fd.get("avg_confidence")
     comprehend = raw_data.get("comprehend") or {}
     tiene_texto = comprehend.get("raw") is not None
 
-    emociones_sum, face_confs = _agregar_emociones(faces)
     total = sum(emociones_sum.values())
 
     score_visual: Optional[float] = None
@@ -344,8 +315,8 @@ def extract_satisfaccion_alumno(raw_data: dict[str, Any]) -> dict[str, Any]:
             },
         }
 
-    if face_confs:
-        confianza = _avg(face_confs)
+    if avg_face_conf is not None:
+        confianza = avg_face_conf
     elif tiene_texto:
         confianza = comprehend.get("confidence")
     else:

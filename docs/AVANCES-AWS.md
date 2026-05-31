@@ -34,7 +34,7 @@ main
 | 8 | Job Poller | 📦 Commit local | `task-8-job-poller` | — |
 | 9 | Webhook SNS | 📦 Commit local | `task-9-webhook` | — |
 | 10 | *Checkpoint — orquestación y completitud* | ⬜ Pendiente | (gate, sin PR) | — |
-| 11 | Metrics Extractor — Asistencia y Permanencia | ⬜ Pendiente | — | — |
+| 11 | Metrics Extractor — Asistencia y Permanencia | 📦 Commit local | `task-11-metrics-asistencia` | — |
 | 12 | Metrics Extractor — Claridad y Ratio habla/demo | ⬜ Pendiente | — | — |
 | 13 | Metrics Extractor — Satisfacción del Alumno | ⬜ Pendiente | — | — |
 | 14 | `apply_metrics_to_clase` + estado de clase | ⬜ Pendiente | — | — |
@@ -183,7 +183,17 @@ docker run --rm --entrypoint pytest gymsight-test -v
 **Verificación:** sintaxis OK. pytest con DB en el Checkpoint 10.
 
 ### Task 11 — Metrics Extractor: Asistencia y Permanencia
-_Pendiente._
+📦 Commit local (rama `task-11-metrics-asistencia`, sobre `task-9-webhook`).
+
+**Qué se hizo (`app/services/analysis/metrics_extractor.py`):**
+- Helpers compartidos: `_index_timeline` (por `PersonIndex`: primera/última aparición y confianzas), `_video_duration_ms`, `_avg`.
+- `extract_asistencia`: cuenta personas únicas; `valor_numerico` = N, `confianza` promedio, `detalle.personas_detectadas`.
+- `extract_permanencia`: % de personas presentes ≥80% de la duración; `detalle.timeline` con `salida_ms` por persona; umbral 80.
+- Los extractores 12/13 quedan como stubs hasta sus tasks.
+
+**Tests (`tests/test_metrics_asistencia.py`):** sin personas, conteo único + confianza, permanencia completa, mixta (50%), sin datos. **5/5 pasan** (funciones puras, sin DB).
+
+**Verificación:** `pytest tests/test_metrics_asistencia.py` → 5 passed.
 
 ### Task 12 — Metrics Extractor: Claridad y Ratio habla/demostración
 _Pendiente._

@@ -42,6 +42,10 @@ class Config:
     AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID")
     AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
     S3_BUCKET = os.environ.get("S3_BUCKET", "")
+    SNS_TOPIC_ARN = os.environ.get("SNS_TOPIC_ARN")
+    TRANSCRIBE_OUTPUT_BUCKET = os.environ.get("TRANSCRIBE_OUTPUT_BUCKET")
+    # Idioma por defecto para Transcribe (los videos de demo están en inglés).
+    TRANSCRIBE_LANGUAGE_CODE = os.environ.get("TRANSCRIBE_LANGUAGE_CODE", "es-ES")
 
 
 class DevelopmentConfig(Config):
@@ -52,7 +56,17 @@ class ProductionConfig(Config):
     DEBUG = False
 
 
+class TestingConfig(Config):
+    TESTING = True
+    DEBUG = True
+    AWS_ENABLED = False
+    SQLALCHEMY_DATABASE_URI = os.environ.get(
+        "TEST_DATABASE_URL", "sqlite+pysqlite:///:memory:"
+    )
+
+
 config_by_name = {
     "development": DevelopmentConfig,
     "production": ProductionConfig,
+    "testing": TestingConfig,
 }

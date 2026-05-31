@@ -1,15 +1,28 @@
 """Clientes de bajo nivel para servicios AWS (S3, Rekognition, Transcribe, etc.)."""
 
-from app.services.aws.s3_client import upload_archivo_to_s3
-from app.services.aws.rekognition_client import get_video_job_result, start_video_analysis
+from app.services.aws.s3_client import (
+    check_object_exists,
+    generate_presigned_url,
+    get_s3_uri,
+)
+from app.services.aws.rekognition_client import (
+    get_face_detection_result,
+    get_person_tracking_result,
+    start_face_detection,
+    start_person_tracking,
+)
 from app.services.aws.transcribe_client import get_transcription_result, start_transcription
-from app.services.aws.comprehend_client import analyze_text_sentiment
+from app.services.aws.comprehend_client import analyze_sentiment
 
 __all__ = [
-    "upload_archivo_to_s3",
-    "start_video_analysis",
-    "get_video_job_result",
+    "check_object_exists",
+    "generate_presigned_url",
+    "get_s3_uri",
+    "start_person_tracking",
+    "start_face_detection",
+    "get_person_tracking_result",
+    "get_face_detection_result",
     "start_transcription",
     "get_transcription_result",
-    "analyze_text_sentiment",
+    "analyze_sentiment",
 ]

@@ -29,16 +29,16 @@ main
 | 3 | Rekognition Client | 📦 Commit local | `task-3-rekognition` | — |
 | 4 | Transcribe Client | 📦 Commit local | `task-4-transcribe` | — |
 | 5 | Comprehend Client | 📦 Commit local | `task-5-comprehend` | — |
-| 6 | *Checkpoint — verificar clientes AWS* | ⬜ Pendiente | (gate, sin PR) | — |
+| 6 | *Checkpoint — verificar clientes AWS* | ✅ 20/20 | (gate, sin PR) | — |
 | 7 | Pipeline Orchestrator | 📦 Commit local | `task-7-pipeline` | — |
 | 8 | Job Poller | 📦 Commit local | `task-8-job-poller` | — |
 | 9 | Webhook SNS | 📦 Commit local | `task-9-webhook` | — |
-| 10 | *Checkpoint — orquestación y completitud* | ⬜ Pendiente | (gate, sin PR) | — |
+| 10 | *Checkpoint — orquestación y completitud* | ✅ 35/35 | (gate, sin PR) | — |
 | 11 | Metrics Extractor — Asistencia y Permanencia | 📦 Commit local | `task-11-metrics-asistencia` | — |
 | 12 | Metrics Extractor — Claridad y Ratio habla/demo | 📦 Commit local | `task-12-metrics-claridad` | — |
 | 13 | Metrics Extractor — Satisfacción del Alumno | 📦 Commit local | `task-13-metrics-satisfaccion` | — |
 | 14 | `apply_metrics_to_clase` + estado de clase | 📦 Commit local | `task-14-apply-metrics` | — |
-| 15 | *Checkpoint — extracción de métricas* | ⬜ Pendiente | (gate, sin PR) | — |
+| 15 | *Checkpoint — extracción de métricas* | ✅ 54/54 | (gate, sin PR) | — |
 | 16 | Integración final y verificación end-to-end | 📦 Commit local | `task-16-integracion` | — |
 | 17 | *Checkpoint final* | ✅ 57/57 | (gate, sin PR) | — |
 

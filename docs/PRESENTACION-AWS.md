@@ -60,10 +60,12 @@ Tener el `docker compose up` ya corriendo de antes. Entonces:
    > "Este comando le pregunta a AWS si ya terminó. Cuando todos los análisis de una clase
    > terminan, el sistema calcula las métricas solo."
 
-3. **Abrir el dashboard** → http://localhost:5001 → clase **Silver Sneakers**:
-   > "Y acá está el resultado real: claridad 86/100 (habló a 158 palabras por minuto, ritmo
-   > ideal), satisfacción 58/100 con el desglose de emociones, y 55% del tiempo hablando vs.
-   > demostrando. **Todo esto salió de un video, automáticamente.**"
+3. **Abrir el dashboard** → http://localhost:5001 → entrar a una clase (ej. **Mat Pilates**,
+   45 min):
+   > "Y acá está el resultado real: claridad 72/100, satisfacción 60/100 con el desglose de
+   > emociones (mayormente CALM), y 73% del tiempo hablando vs. demostrando. **Todo esto
+   > salió de un video de 45 minutos, automáticamente.** Y procesamos 4 clases distintas:
+   > los números son consistentes entre ellas."
 
 ### Paso 4 — Honestidad técnica (30 s) — suma puntos
 > "Al probarlo en real, la cuenta de AWS tenía una restricción de organización (un SCP) que
@@ -208,43 +210,62 @@ políticas administradas `AmazonRekognitionFullAccess`, `AmazonTranscribeFullAcc
 
 ## 7. La prueba real contra AWS (qué se demostró)
 
-Se corrió el pipeline **de verdad** contra una cuenta AWS, con los 4 videos reales en S3.
+Se corrió el pipeline **de verdad** contra una cuenta AWS, con los 4 videos reales en S3
+(uno de 15 s y tres clases completas de 45-61 min).
 
-**Funcionó end-to-end:** un video corto (15 s) recorrió todo el flujo
+**Funcionó end-to-end en las 4 clases:** cada video recorrió todo el flujo
 (lanzar jobs → polling → métricas → estado `completada`) y produjo **3 de las 5 métricas
-con datos reales**.
+con datos reales** (claridad, satisfacción, habla/demo). Asistencia y permanencia quedaron
+en 0 por el bloqueo de Person Tracking (ver hallazgo 1).
 
-**Dos hallazgos durante la prueba** (típicos de integrar con AWS):
+**Tres hallazgos durante la prueba** (todos típicos de integrar con AWS, y cada uno dejó el
+sistema mejor):
 
 1. **Person Tracking bloqueado por la cuenta.** `StartPersonTracking` devolvía
    `AccessDenied` con mensaje vacío, **solo esa acción** (FaceDetection, LabelDetection y
    las APIs base de Rekognition sí funcionaban). Diagnóstico: la cuenta tiene un **SCP**
-   (Service Control Policy: una política a nivel de organización que está por encima de
-   los permisos del usuario) que deniega específicamente `StartPersonTracking`. **No es un
-   bug del código ni de los permisos del usuario** — es una restricción de la cuenta
-   (común en cuentas de taller/sandbox). Por eso asistencia y permanencia quedan en 0.
+   (Service Control Policy: política a nivel de organización que está por encima de los
+   permisos del usuario) que deniega específicamente `StartPersonTracking`. **No es un bug
+   del código ni de los permisos del usuario** — es una restricción de la cuenta (común en
+   cuentas de taller/sandbox). Por eso asistencia y permanencia quedan en 0.
 
 2. **Formato del URI de Transcribe.** Transcribe quiere la "key" del objeto S3 **literal**
-   (con espacios y `#` tal cual), no URL-encoded. Se corrigió en el código.
+   (con espacios y `#` tal cual), no URL-encoded. Se corrigió.
+
+3. **Tamaño de la respuesta de FaceDetection (escalabilidad).** FaceDetection sobre un
+   video de 1 h devuelve **~245 MB** de JSON (un rostro por frame). PostgreSQL tiene un
+   límite duro de **256 MB por valor JSONB**, así que guardar el crudo completo fallaba y
+   el job nunca se cerraba. **Fix:** ahora se **agregan las emociones al vuelo** durante la
+   paginación y se guarda solo un resumen (~300 bytes en vez de 245 MB). Escala a videos
+   de cualquier duración. *(Talking point fuerte: muestra pensamiento de escalabilidad.)*
 
 > Aprendizaje para presentar: el código quedó **más robusto** gracias a la prueba real.
-> Ahora, si un servicio está bloqueado, el pipeline **no se cae**: marca ese job como
-> fallido y sigue con los demás (las otras métricas igual se calculan).
+> Si un servicio está bloqueado, el pipeline **no se cae** (marca ese job y sigue), y la
+> ingesta **escala** a videos largos sin reventar la base de datos.
 
 ---
 
-## 8. Resultados reales de ejemplo (clase "Silver Sneakers", 15 s)
+## 8. Resultados reales de las 4 clases
 
-| Métrica | Valor | Detalle real que entregó AWS |
-|---------|-------|------------------------------|
-| **Claridad** | **86 / 100** | 157.9 palabras/min (dentro del óptimo), confianza 0.88 |
-| **Satisfacción** | **58 / 100** | Emociones: CALM 70%, SURPRISED 9%, SAD 7%, ANGRY 3%... + sentimiento del texto 73 |
-| **Habla vs. demo** | **54.7 %** | 6.4 s hablando / 5.3 s en silencio / 11.7 s total |
-| Asistencia | 0 personas | *(Person Tracking bloqueado por el SCP)* |
-| Permanencia | 0 % | *(idem)* |
+Las 4 clases reales en S3 se procesaron completas. Valores generados **automáticamente
+desde el video** por Transcribe + Rekognition Face Detection + Comprehend:
 
-Los 3 valores reales salieron de **Transcribe + Rekognition Face Detection + Comprehend**
-funcionando de verdad.
+| Clase | Duración | Claridad | Satisfacción | Habla vs. demo |
+|-------|----------|----------|--------------|----------------|
+| Silver Sneakers | 12 s | 86 | 58 | 54.7 % |
+| Mat Pilates | 45 min | 72 | 60 | 73.4 % |
+| Reformer | 57 min | 78 | 54 | 65.3 % |
+| Hot Pilates | 61 min | 74 | 62 | 69.6 % |
+
+*(Asistencia y permanencia salen 0 en todas por el SCP que bloquea Person Tracking.)*
+
+**Patrón coherente** (buen punto para presentar): clases de pilates con ambiente
+predominantemente **CALM**, instructor hablando 65-73 % del tiempo, y claridad 72-86 con
+ritmos de 115-158 palabras/min. Los números **tienen sentido** y son consistentes entre
+clases — el pipeline no inventa, refleja la clase real.
+
+**Ejemplo de detalle (Hot Pilates, 61 min):** emociones `{CALM: 58%, HAPPY: 8%, SAD: 15%,
+SURPRISED: 8%...}`, habló 42 min / 18.5 min en silencio, 118.8 palabras/min.
 
 ---
 

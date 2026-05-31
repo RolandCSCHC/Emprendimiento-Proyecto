@@ -246,6 +246,16 @@ Bloque de métricas (Tasks 11–14) implementado y verificado.
 - CLI `flask aws-poll-jobs` ejecuta sin error y reporta `Jobs procesados: 0` cuando no hay jobs.
 - Flujo completo: `enqueue` (3 jobs) → `poll` (todos SUCCEEDED) → 5 métricas `completed` → clase `completada`, con todos los servicios AWS mockeados.
 
+## Prueba real contra AWS + fix de escalabilidad (post-plan)
+
+Se ejecutó el pipeline contra una cuenta AWS real con los 4 videos en S3. Hallazgos y arreglos (rama `fix-jsonb-aggregate`, sobre `demo-cli-analyze`):
+
+- **Comando `flask aws-analyze`** (rama `demo-cli-analyze`): dispara el análisis de las clases sembradas (la app solo auto-disparaba al subir archivos).
+- **Pipeline robusto**: si el lanzamiento de un servicio falla (p. ej. SCP que bloquea `StartPersonTracking`), se marca ese job `failed` y se continúa con los demás (no aborta la clase). El poller dispara métricas cuando los jobs están en estado terminal.
+- **Transcribe URI**: usa la key S3 literal (no URL-encoded).
+- **Fix límite JSONB (256 MB)**: FaceDetection de 1 h devolvía ~245 MB → excedía el límite de Postgres y el job no se guardaba. Ahora `get_face_detection_result`/`get_person_tracking_result` **agregan al vuelo** y guardan un resumen compacto (~300 bytes). Escala a cualquier duración. El `detalle` de las métricas (lo que lee el dashboard) no cambió.
+- **Resultado**: las 4 clases quedaron `completada` con 3 métricas reales (claridad, satisfacción, habla/demo). Asistencia/permanencia en 0 por el SCP. 58 tests pasan.
+
 ## Checkpoint Task 17 — Final ✅
 **Toda la fase AWS implementada y verificada.** Suite completa contra Postgres → **57/57 tests pasan** (`2.90s`).
 

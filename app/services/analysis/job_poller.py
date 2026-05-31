@@ -97,11 +97,18 @@ def _query_service(servicio: str, job_id_externo: Optional[str]) -> Optional[dic
 
 
 def _maybe_extract_metrics(clase_id: uuid.UUID) -> None:
-    """Si todos los jobs de la clase están completos, calcula las métricas."""
+    """
+    Calcula las métricas cuando todos los jobs de la clase llegan a un estado
+    terminal (completado o fallido) y al menos uno se completó. Las métricas
+    cuyos datos no estén disponibles (job fallido) se calculan con lo que haya.
+    """
     jobs = AnalisisJob.query.filter_by(clase_id=clase_id).all()
     if not jobs:
         return
-    if all(job.status == JOB_COMPLETED for job in jobs):
+    terminal = {JOB_COMPLETED, JOB_FAILED}
+    if all(job.status in terminal for job in jobs) and any(
+        job.status == JOB_COMPLETED for job in jobs
+    ):
         combined = _build_combined_raw_data(jobs)
         apply_metrics_to_clase(str(clase_id), combined)
 

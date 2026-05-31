@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Any, Optional
-from urllib.parse import quote
 
 from flask import current_app
 
@@ -84,31 +83,40 @@ def _process_archivo(
     base = {"s3_bucket": archivo.s3_bucket, "s3_key": archivo.s3_key}
 
     if archivo.tipo == "video":
-        pt_job = rekognition_client.start_person_tracking(
-            archivo.s3_bucket, archivo.s3_key, sns_topic_arn
-        )
-        _record_submitted_job(
-            clase, archivo, SERVICE_PERSON_TRACKING, pt_job,
+        _launch(
+            clase, archivo, SERVICE_PERSON_TRACKING,
+            lambda: rekognition_client.start_person_tracking(
+                archivo.s3_bucket, archivo.s3_key, sns_topic_arn
+            ),
             {**base, "service": SERVICE_PERSON_TRACKING, "sns_topic_arn": sns_topic_arn},
         )
-        fd_job = rekognition_client.start_face_detection(
-            archivo.s3_bucket, archivo.s3_key, sns_topic_arn
-        )
-        _record_submitted_job(
-            clase, archivo, SERVICE_FACE_DETECTION, fd_job,
+        _launch(
+            clase, archivo, SERVICE_FACE_DETECTION,
+            lambda: rekognition_client.start_face_detection(
+                archivo.s3_bucket, archivo.s3_key, sns_topic_arn
+            ),
             {**base, "service": SERVICE_FACE_DETECTION, "sns_topic_arn": sns_topic_arn},
         )
 
     if archivo.tipo in ("video", "audio"):
-        # URL-encode de la key (los nombres traen espacios y '#') para el MediaFileUri.
-        s3_uri = f"s3://{archivo.s3_bucket}/{quote(archivo.s3_key)}"
-        tr_job = transcribe_client.start_transcription(
-            s3_uri, language_code, output_bucket
-        )
-        _record_submitted_job(
-            clase, archivo, SERVICE_TRANSCRIBE, tr_job,
+        # Transcribe espera la key LITERAL en el MediaFileUri (no URL-encoded),
+        # aunque tenga espacios o '#'.
+        s3_uri = f"s3://{archivo.s3_bucket}/{archivo.s3_key}"
+        _launch(
+            clase, archivo, SERVICE_TRANSCRIBE,
+            lambda: transcribe_client.start_transcription(s3_uri, language_code, output_bucket),
             {**base, "service": SERVICE_TRANSCRIBE, "language_code": language_code},
         )
+
+
+def _launch(clase, archivo, servicio, fn, request_payload) -> None:
+    """Lanza un job; si falla (p. ej. permisos), registra el fallo y NO aborta los demás."""
+    try:
+        job_id = fn()
+    except Exception as exc:  # noqa: BLE001 - un servicio bloqueado no debe tumbar el resto
+        _record_failed_job(clase, archivo, f"Error lanzando {servicio}: {exc}", servicio)
+        return
+    _record_submitted_job(clase, archivo, servicio, job_id, request_payload)
 
 
 def _now() -> datetime:
@@ -136,7 +144,9 @@ def _record_submitted_job(
     )
 
 
-def _record_failed_job(clase: Clase, archivo: ArchivoMedia, error_mensaje: str) -> None:
+def _record_failed_job(
+    clase: Clase, archivo: ArchivoMedia, error_mensaje: str, servicio: str = SERVICE_VALIDACION
+) -> None:
     current_app.logger.warning(
         "Análisis fallido para archivo %s: %s", archivo.id, error_mensaje
     )
@@ -145,7 +155,7 @@ def _record_failed_job(clase: Clase, archivo: ArchivoMedia, error_mensaje: str) 
             clase_id=clase.id,
             archivo_media_id=archivo.id,
             proveedor="aws",
-            servicio=SERVICE_VALIDACION,
+            servicio=servicio,
             status=JOB_FAILED,
             error_mensaje=error_mensaje,
         )

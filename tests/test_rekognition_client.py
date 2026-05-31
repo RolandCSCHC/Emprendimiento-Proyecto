@@ -83,6 +83,24 @@ def test_get_face_detection_aggregates_emotions(fake_client):
     assert result["avg_confidence"] == 0.97
 
 
+def test_get_face_detection_presencia_por_tercio(fake_client):
+    fake_client.get_face_detection.return_value = {
+        "JobStatus": "SUCCEEDED",
+        "VideoMetadata": {"DurationMillis": 9000},
+        "Faces": [
+            {"Timestamp": 1000, "Face": {"Confidence": 99, "Emotions": []}},  # inicio: 2
+            {"Timestamp": 1000, "Face": {"Confidence": 99, "Emotions": []}},
+            {"Timestamp": 4000, "Face": {"Confidence": 99, "Emotions": []}},  # mitad: 3
+            {"Timestamp": 4000, "Face": {"Confidence": 99, "Emotions": []}},
+            {"Timestamp": 4000, "Face": {"Confidence": 99, "Emotions": []}},
+            {"Timestamp": 8000, "Face": {"Confidence": 99, "Emotions": []}},  # final: 1
+        ],
+    }
+    result = rekognition_client.get_face_detection_result("fd")
+    assert result["video_duration_ms"] == 9000
+    assert result["presencia"] == {"inicio": 2, "mitad": 3, "final": 1}
+
+
 def test_get_face_detection_failed(fake_client):
     fake_client.get_face_detection.return_value = {
         "JobStatus": "FAILED",

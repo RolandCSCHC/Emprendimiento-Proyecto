@@ -119,72 +119,122 @@ def _sorted_persons(persons: dict[str, dict[str, Any]]):
     return sorted(((int(idx), e) for idx, e in persons.items()), key=lambda kv: kv[0])
 
 
-def extract_asistencia(raw_data: dict[str, Any]) -> dict[str, Any]:
-    """Número de personas únicas detectadas (Rekognition PersonTracking)."""
-    persons = _persons_summary(raw_data)
+def _presencia_facedetection(raw_data: dict[str, Any]) -> dict[str, int]:
+    """Conteo de caras simultáneas por tercio (inicio/mitad/final) de FaceDetection."""
+    return (raw_data.get(SERVICE_FACE_DETECTION) or {}).get("presencia") or {}
 
-    personas: list[dict[str, Any]] = []
-    confs: list[float] = []
-    for idx, e in _sorted_persons(persons):
-        conf = e.get("conf")
-        personas.append(
-            {"person_index": idx, "primera_aparicion_ms": e.get("first_ms"), "confianza": conf}
-        )
-        if conf is not None:
-            confs.append(conf)
+
+def extract_asistencia(raw_data: dict[str, Any]) -> dict[str, Any]:
+    """
+    Personas detectadas. Fuente primaria: PersonTracking (personas únicas).
+    Como AWS descontinuó People Pathing, se usa FaceDetection como respaldo:
+    pico de caras simultáneas (inicio/mitad/final).
+    """
+    persons = _persons_summary(raw_data)
+    if persons:
+        personas: list[dict[str, Any]] = []
+        confs: list[float] = []
+        for idx, e in _sorted_persons(persons):
+            conf = e.get("conf")
+            personas.append(
+                {"person_index": idx, "primera_aparicion_ms": e.get("first_ms"), "confianza": conf}
+            )
+            if conf is not None:
+                confs.append(conf)
+        return {
+            "valor_numerico": len(persons),
+            "unidad": "personas",
+            "confianza": _avg(confs),
+            "detalle": {"personas_detectadas": personas, "fuente": "person_tracking"},
+        }
+
+    presencia = _presencia_facedetection(raw_data)
+    if presencia:
+        pico = max(presencia.values())
+        return {
+            "valor_numerico": pico,
+            "unidad": "personas",
+            "confianza": None,
+            "detalle": {
+                "inicio": presencia.get("inicio", 0),
+                "mitad": presencia.get("mitad", 0),
+                "final": presencia.get("final", 0),
+                "fuente": "face_detection (pico de caras visibles)",
+            },
+        }
 
     return {
-        "valor_numerico": len(persons),
+        "valor_numerico": 0,
         "unidad": "personas",
-        "confianza": _avg(confs),
-        "detalle": {"personas_detectadas": personas},
+        "confianza": None,
+        "detalle": {"personas_detectadas": []},
     }
 
 
 def extract_permanencia(raw_data: dict[str, Any]) -> dict[str, Any]:
-    """% de personas presentes ≥80% de la duración del video."""
+    """
+    Permanencia. Fuente primaria: PersonTracking (% presentes ≥80% del video).
+    Respaldo FaceDetection: % de caras al final respecto al inicio (¿se vació?).
+    """
     pt = raw_data.get(SERVICE_PERSON_TRACKING) or {}
     persons = pt.get("persons") or {}
     duracion = pt.get("video_duration_ms") or max(
         (e.get("last_ms", 0) for e in persons.values()), default=0
     )
 
-    if not persons or not duracion:
+    if persons and duracion:
+        detalle_timeline: list[dict[str, Any]] = []
+        confs: list[float] = []
+        permanecieron = 0
+        for idx, e in _sorted_persons(persons):
+            presencia_pct = min(
+                100.0, round((e["last_ms"] - e["first_ms"]) / duracion * 100, 1)
+            )
+            quedo = presencia_pct >= UMBRAL_PERMANENCIA_PCT
+            if quedo:
+                permanecieron += 1
+            detalle_timeline.append(
+                {
+                    "person_index": idx,
+                    "presencia_pct": presencia_pct,
+                    "salida_ms": None if quedo else e["last_ms"],
+                }
+            )
+            if e.get("conf") is not None:
+                confs.append(e["conf"])
         return {
-            "valor_numerico": 0,
+            "valor_numerico": round(permanecieron / len(persons) * 100, 1),
             "unidad": "porcentaje",
-            "confianza": None,
-            "detalle": {"timeline": [], "umbral_permanencia_pct": UMBRAL_PERMANENCIA_PCT},
+            "confianza": _avg(confs),
+            "detalle": {
+                "timeline": detalle_timeline,
+                "umbral_permanencia_pct": UMBRAL_PERMANENCIA_PCT,
+                "fuente": "person_tracking",
+            },
         }
 
-    detalle_timeline: list[dict[str, Any]] = []
-    confs: list[float] = []
-    permanecieron = 0
-    for idx, e in _sorted_persons(persons):
-        presencia_pct = min(
-            100.0, round((e["last_ms"] - e["first_ms"]) / duracion * 100, 1)
-        )
-        quedo = presencia_pct >= UMBRAL_PERMANENCIA_PCT
-        if quedo:
-            permanecieron += 1
-        detalle_timeline.append(
-            {
-                "person_index": idx,
-                "presencia_pct": presencia_pct,
-                "salida_ms": None if quedo else e["last_ms"],
-            }
-        )
-        if e.get("conf") is not None:
-            confs.append(e["conf"])
+    presencia = _presencia_facedetection(raw_data)
+    inicio = presencia.get("inicio", 0)
+    if presencia and inicio:
+        final = presencia.get("final", 0)
+        pct = min(100.0, round(final / inicio * 100, 1))
+        return {
+            "valor_numerico": pct,
+            "unidad": "porcentaje",
+            "confianza": None,
+            "detalle": {
+                "inicio": inicio,
+                "mitad": presencia.get("mitad", 0),
+                "final": final,
+                "fuente": "face_detection (caras al final vs inicio)",
+            },
+        }
 
     return {
-        "valor_numerico": round(permanecieron / len(persons) * 100, 1),
+        "valor_numerico": 0,
         "unidad": "porcentaje",
-        "confianza": _avg(confs),
-        "detalle": {
-            "timeline": detalle_timeline,
-            "umbral_permanencia_pct": UMBRAL_PERMANENCIA_PCT,
-        },
+        "confianza": None,
+        "detalle": {"timeline": [], "umbral_permanencia_pct": UMBRAL_PERMANENCIA_PCT},
     }
 
 

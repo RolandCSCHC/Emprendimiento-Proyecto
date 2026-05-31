@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from app.services.analysis.constants import SERVICE_PERSON_TRACKING
+from app.services.analysis.constants import (
+    SERVICE_FACE_DETECTION,
+    SERVICE_PERSON_TRACKING,
+)
 from app.services.analysis.metrics_extractor import (
     extract_asistencia,
     extract_permanencia,
@@ -57,3 +60,22 @@ def test_permanencia_sin_datos():
     result = extract_permanencia(_combined({}))
     assert result["valor_numerico"] == 0
     assert result["detalle"]["timeline"] == []
+
+
+# --- Respaldo con FaceDetection (People Pathing descontinuado) -------------- #
+def _fd(inicio, mitad, final):
+    return {SERVICE_FACE_DETECTION: {"presencia": {"inicio": inicio, "mitad": mitad, "final": final}}}
+
+
+def test_asistencia_desde_facedetection():
+    result = extract_asistencia(_fd(2, 3, 1))
+    assert result["valor_numerico"] == 3  # pico de caras simultáneas
+    assert result["detalle"]["fuente"].startswith("face_detection")
+    assert result["detalle"]["inicio"] == 2
+
+
+def test_permanencia_desde_facedetection():
+    # inicio 4, final 2 -> 50% siguen al final
+    result = extract_permanencia(_fd(4, 3, 2))
+    assert result["valor_numerico"] == 50.0
+    assert result["detalle"]["fuente"].startswith("face_detection")

@@ -116,31 +116,54 @@ def get_person_tracking_result(job_id: str) -> dict[str, Any]:
     return {"status": status, "persons": persons, "video_duration_ms": duration}
 
 
+def _presencia_por_tercio(faces_por_ts: dict[int, int], duration_ms: Optional[int]) -> dict[str, int]:
+    """
+    Máximo de caras simultáneas (por frame) en cada tercio del video.
+
+    Como People Pathing fue descontinuado, esto aproxima asistencia/permanencia:
+    cuántas personas (caras visibles) hay al inicio, mitad y final.
+    """
+    tercios = {"inicio": 0, "mitad": 0, "final": 0}
+    if not duration_ms or not faces_por_ts:
+        return tercios
+    for ts, count in faces_por_ts.items():
+        frac = ts / duration_ms
+        bucket = "inicio" if frac < 1 / 3 else ("mitad" if frac < 2 / 3 else "final")
+        tercios[bucket] = max(tercios[bucket], count)
+    return tercios
+
+
 def get_face_detection_result(job_id: str) -> dict[str, Any]:
     """
-    Consulta ``GetFaceDetection`` y **agrega emociones al vuelo** (no guarda cada rostro).
+    Consulta ``GetFaceDetection`` y **agrega al vuelo** (no guarda cada rostro).
 
     Returns:
-        ``{status, emotions, face_count, avg_confidence}`` donde ``emotions`` es la
-        suma de confianza por tipo de emoción. Compacto (unos KB) sin importar la
-        duración del video.
+        ``{status, emotions, face_count, avg_confidence, video_duration_ms, presencia}``.
+        ``emotions`` suma confianza por tipo; ``presencia`` es el máximo de caras
+        simultáneas por tercio (inicio/mitad/final) para asistencia/permanencia.
+        Compacto (unos KB) sin importar la duración del video.
     """
     client = get_boto_client("rekognition")
     status: Optional[str] = None
+    duration: Optional[int] = None
     emotions: dict[str, float] = {}
     conf_sum = 0.0
     face_count = 0
+    faces_por_ts: dict[int, int] = {}
     for page in _iter_pages(client.get_face_detection, job_id):
         if status is None:
             status = page.get("JobStatus")
             if status == "FAILED":
                 return {"status": "FAILED", "error": page.get("StatusMessage")}
+            duration = (page.get("VideoMetadata") or {}).get("DurationMillis")
         for f in page.get("Faces", []):
             face = f.get("Face") or {}
             conf = face.get("Confidence")
             if conf is not None:
                 conf_sum += conf / 100.0
             face_count += 1
+            ts = f.get("Timestamp", 0)
+            faces_por_ts[ts] = faces_por_ts.get(ts, 0) + 1
             for emo in face.get("Emotions") or []:
                 tipo, ec = emo.get("Type"), emo.get("Confidence")
                 if tipo is None or ec is None:
@@ -149,6 +172,8 @@ def get_face_detection_result(job_id: str) -> dict[str, Any]:
 
     return {
         "status": status,
+        "video_duration_ms": duration,
+        "presencia": _presencia_por_tercio(faces_por_ts, duration),
         "emotions": emotions,
         "face_count": face_count,
         "avg_confidence": round(conf_sum / face_count, 4) if face_count else None,

@@ -1,41 +1,67 @@
-"""Subida y lectura de archivos de media en Amazon S3."""
+"""Lectura y validación de archivos de media en Amazon S3.
+
+Los videos ya están en S3 (no se sube nada desde la app), así que este módulo
+solo verifica existencia, construye URIs y genera URLs pre-firmadas.
+"""
 
 from __future__ import annotations
 
 from typing import Optional
 
-from app.models import ArchivoMedia
+from botocore.exceptions import ClientError
+
+from app.services.aws.boto_session import get_boto_client
+
+# Códigos de error de S3/botocore que significan "el objeto no existe".
+_NOT_FOUND_CODES = {"404", "NoSuchKey", "NotFound"}
 
 
-def upload_archivo_to_s3(archivo: ArchivoMedia, local_path: str) -> tuple[str, str]:
+def check_object_exists(bucket: str, key: str) -> bool:
     """
-    Sube un archivo local a S3 y devuelve (bucket, key).
-
-    Pasos a implementar:
-    1. Crear cliente boto3 S3 con credenciales de app.config.
-    2. Generar s3_key: ej. ``clases/{clase_id}/{tipo}.{extension}``.
-    3. Subir el fichero con ``upload_file`` o ``put_object``.
-    4. Actualizar ``archivo.s3_bucket`` y ``archivo.s3_key`` en la sesión DB.
-
-    Args:
-        archivo: Registro ArchivoMedia asociado a la clase.
-        local_path: Ruta absoluta del fichero en disco (UPLOAD_FOLDER).
+    Verifica que un objeto existe en S3 usando ``HeadObject``.
 
     Returns:
-        Tupla (bucket, key) del objeto subido.
+        ``True`` si el objeto existe, ``False`` si no se encontró (404).
+
+    Raises:
+        ClientError: ante cualquier otro error (permisos, bucket inexistente, etc.).
     """
-    raise NotImplementedError("Integración S3 pendiente. Ver README — Fase AWS.")
+    client = get_boto_client("s3")
+    try:
+        client.head_object(Bucket=bucket, Key=key)
+        return True
+    except ClientError as exc:
+        error_code = exc.response.get("Error", {}).get("Code")
+        if error_code in _NOT_FOUND_CODES:
+            return False
+        raise
 
 
 def get_s3_uri(bucket: str, key: str) -> str:
-    """Devuelve la URI s3:// usada por Rekognition y Transcribe."""
+    """Devuelve la URI ``s3://bucket/key`` usada por Rekognition y Transcribe."""
     return f"s3://{bucket}/{key}"
 
 
-def generate_presigned_url(bucket: str, key: str, expires_in: int = 3600) -> Optional[str]:
+def generate_presigned_url(
+    bucket: str, key: str, expires_in: int = 3600
+) -> Optional[str]:
     """
-    Opcional: URL firmada para descargar o previsualizar media desde el dashboard.
+    Genera una URL pre-firmada (``get_object``) para previsualizar el objeto.
 
-    Útil si no quieres servir archivos directamente desde Flask.
+    Args:
+        bucket: bucket de S3.
+        key: clave del objeto.
+        expires_in: expiración en segundos (por defecto 3600).
+
+    Returns:
+        La URL pre-firmada, o ``None`` si ocurre un error.
     """
-    raise NotImplementedError("Integración S3 pendiente. Ver README — Fase AWS.")
+    client = get_boto_client("s3")
+    try:
+        return client.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": bucket, "Key": key},
+            ExpiresIn=expires_in,
+        )
+    except ClientError:
+        return None

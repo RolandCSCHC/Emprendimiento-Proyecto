@@ -9,6 +9,8 @@ Documento vivo para registrar el avance de la fase AWS de Gymsight. Cada task de
 - **Un PR por task:** cada rama de task se integra con un PR hacia `aws-analisis`.
 - **Merge final:** al terminar toda la fase, un único PR `aws-analisis` → `main`.
 
+> ⚠️ **Acceso:** la cuenta `camila-hinojosa-anez` hoy solo tiene permiso de lectura sobre `RolandCSCHC/Emprendimiento-Proyecto`. Hasta obtener acceso de escritura (o crear un fork), las ramas se mantienen **locales y apiladas** (cada task sale de la anterior) para que el código siempre compile. Al obtener acceso se pushean y se abren los PRs en orden.
+
 ```
 main
  └── aws-analisis            (integración)
@@ -22,8 +24,8 @@ main
 
 | Task | Descripción | Estado | Rama | PR |
 |------|-------------|--------|------|----|
-| 1 | Configuración del proyecto y dependencias AWS | 🟡 En progreso | `task-1-config` | — |
-| 2 | S3 Client | ⬜ Pendiente | — | — |
+| 1 | Configuración del proyecto y dependencias AWS | 📦 Commit local | `task-1-config` | — |
+| 2 | S3 Client | 📦 Commit local | `task-2-s3-client` | — |
 | 3 | Rekognition Client | ⬜ Pendiente | — | — |
 | 4 | Transcribe Client | ⬜ Pendiente | — | — |
 | 5 | Comprehend Client | ⬜ Pendiente | — | — |
@@ -40,7 +42,7 @@ main
 | 16 | Integración final y verificación end-to-end | ⬜ Pendiente | — | — |
 | 17 | *Checkpoint final* | ⬜ Pendiente | (gate, sin PR) | — |
 
-**Leyenda:** ⬜ Pendiente · 🟡 En progreso · ✅ Mergeado
+**Leyenda:** ⬜ Pendiente · 🟡 En progreso · 📦 Commit local (pendiente push/PR) · ✅ Mergeado
 
 ---
 
@@ -68,7 +70,18 @@ main
 **Datos reales de la demo:** bucket `rekognition-gym-videos`, región `us-west-2` (Oregon), idioma `en-US`. Configurados en `.env.example`; las credenciales AWS van en `.env` (no versionado).
 
 ### Task 2 — S3 Client
-_Pendiente._
+📦 Commit local (rama `task-2-s3-client`, sobre `task-1-config`).
+
+**Qué se hizo (`app/services/aws/s3_client.py`):**
+- `check_object_exists(bucket, key)`: usa `head_object`; devuelve `False` ante 404/NoSuchKey/NotFound, re-lanza otros errores.
+- `get_s3_uri(bucket, key)`: devuelve `s3://bucket/key` (sin cambios).
+- `generate_presigned_url(bucket, key, expires_in=3600)`: URL pre-firmada `get_object`; `None` si falla.
+- Eliminado el stub huérfano `upload_archivo_to_s3` (decisión de diseño: sin upload desde la app).
+- Usa `get_boto_client("s3")` de la Task 1.
+
+**Tests (`tests/test_s3_client.py`, con `moto`):** existencia True/False, `get_s3_uri`, y generación de URL pre-firmada.
+
+**Verificación:** `python -m py_compile` OK. Ejecución de pytest pendiente de entorno con deps (Checkpoint Task 6).
 
 ### Task 3 — Rekognition Client
 _Pendiente._

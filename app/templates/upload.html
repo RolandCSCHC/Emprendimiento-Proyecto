@@ -8,7 +8,11 @@
   <p>Completa los datos de la clase y sube el video y/o audio para iniciar el análisis.</p>
 </section>
 
-<form class="upload-form upload-form-wide" method="post" enctype="multipart/form-data" action="{{ url_for('uploads.upload') }}">
+<form class="upload-form upload-form-wide" method="post" enctype="multipart/form-data" action="{{ url_for('uploads.upload') }}"
+  data-allowed-video="{{ ','.join(config['ALLOWED_VIDEO_EXTENSIONS']) }}"
+  data-allowed-audio="{{ ','.join(config['ALLOWED_AUDIO_EXTENSIONS']) }}"
+  data-create-pending-url="/upload/create-pending"
+  data-complete-url-template="/upload/CLASE_ID/complete">
   <div class="form-group">
     <label for="gimnasio_id">Gimnasio</label>
     <select id="gimnasio_id" name="gimnasio_id" required>
@@ -87,6 +91,11 @@
 
   <p class="form-hint">Debes subir al menos un archivo de video o audio.</p>
 
+  <progress id="upload-progress" value="0" max="100" hidden></progress>
+  <div id="upload-status" role="status"></div>
+
   <button type="submit" class="btn btn-primary">Crear clase</button>
 </form>
+
+<script src="{{ url_for('static', filename='js/upload.js') }}" defer></script>
 {% endblock %}

@@ -2,6 +2,7 @@
 
 from app.services.aws.s3_client import (
     check_object_exists,
+    generate_presigned_upload_url,
     generate_presigned_url,
     get_s3_uri,
 )
@@ -16,6 +17,7 @@ from app.services.aws.comprehend_client import analyze_sentiment
 
 __all__ = [
     "check_object_exists",
+    "generate_presigned_upload_url",
     "generate_presigned_url",
     "get_s3_uri",
     "start_person_tracking",

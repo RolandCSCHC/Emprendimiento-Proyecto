@@ -8,10 +8,11 @@ from pathlib import Path
 from werkzeug.datastructures import FileStorage
 from werkzeug.utils import secure_filename
 
-from flask import current_app
+from flask import current_app, url_for
 
 from app.extensions import db
 from app.models import ArchivoMedia, Clase
+from app.services.analysis.constants import CLASE_AWAITING_UPLOAD
 from app.services.analysis_service import enqueue_analysis
 from app.services.aws import s3_client
 from app.services.class_service import create_pending_metrics, get_clase
@@ -85,39 +86,38 @@ def _save_file(clase_id: uuid.UUID, file: FileStorage, prefix: str) -> ArchivoMe
     )
 
 
-def create_class_session(
+def create_pending_class(
+    *,
     nombre: str,
     fecha: str,
     gimnasio_id: str,
     profesor_id: str,
     tipo_clase_id: str,
-    video: FileStorage | None,
-    audio: FileStorage | None,
     sala: str | None = None,
     nivel: str | None = None,
-) -> Clase:
+    video_filename: str | None = None,
+    audio_filename: str | None = None,
+) -> dict:
+    """
+    Crea la clase en estado ``awaiting_upload`` y devuelve URLs pre-firmadas para
+    que el navegador suba los archivos **directo a S3** (sin pasar por el servidor).
+    El análisis se dispara luego en ``finalize_class_upload``.
+    """
     if not nombre.strip():
         raise UploadValidationError("El nombre de la clase es obligatorio.")
 
-    has_video = video and video.filename
-    has_audio = audio and audio.filename
-
-    if not has_video and not has_audio:
+    if not video_filename and not audio_filename:
         raise UploadValidationError("Debes subir al menos un archivo de video o audio.")
 
-    if has_video and not _allowed_file(
-        video.filename, current_app.config["ALLOWED_VIDEO_EXTENSIONS"]
+    if video_filename and not _allowed_file(
+        video_filename, current_app.config["ALLOWED_VIDEO_EXTENSIONS"]
     ):
-        raise UploadValidationError(
-            "Formato de video no permitido. Usa: mp4, webm o mov."
-        )
+        raise UploadValidationError("Formato de video no permitido. Usa: mp4, webm o mov.")
 
-    if has_audio and not _allowed_file(
-        audio.filename, current_app.config["ALLOWED_AUDIO_EXTENSIONS"]
+    if audio_filename and not _allowed_file(
+        audio_filename, current_app.config["ALLOWED_AUDIO_EXTENSIONS"]
     ):
-        raise UploadValidationError(
-            "Formato de audio no permitido. Usa: mp3, wav, m4a u ogg."
-        )
+        raise UploadValidationError("Formato de audio no permitido. Usa: mp3, wav, m4a u ogg.")
 
     try:
         gimnasio_uuid = uuid.UUID(gimnasio_id)
@@ -136,24 +136,65 @@ def create_class_session(
         fecha_inicio=fecha_inicio,
         sala=sala.strip() if sala else None,
         nivel=nivel.strip() if nivel else None,
-        status="pendiente_analisis",
+        status=CLASE_AWAITING_UPLOAD,
     )
     db.session.add(clase)
     db.session.flush()
 
-    if has_video:
-        clase.archivos.append(_save_file(clase.id, video, "video"))
-    if has_audio:
-        clase.archivos.append(_save_file(clase.id, audio, "audio"))
+    bucket = current_app.config["S3_BUCKET"]
+    uploads: dict[str, dict] = {}
+    for tipo, filename in (("video", video_filename), ("audio", audio_filename)):
+        if not filename:
+            continue
+        ext = filename.rsplit(".", 1)[1].lower()
+        key = f"clases/{clase.id}/{tipo}.{ext}"
+        clase.archivos.append(
+            ArchivoMedia(
+                tipo=tipo,
+                nombre_original=secure_filename(filename),
+                extension=ext,
+                s3_bucket=bucket,
+                s3_key=key,
+            )
+        )
+        uploads[tipo] = {
+            "presigned_url": s3_client.generate_presigned_upload_url(bucket, key),
+            "s3_bucket": bucket,
+            "s3_key": key,
+        }
 
     db.session.flush()
 
-    # Las métricas se pre-crean en estado pending (para que el dashboard muestre
-    # las 5 tarjetas). Los jobs los crea el pipeline (no se pre-crean aquí).
+    # Métricas pending (para el dashboard). Los jobs los crea el pipeline.
     for metrica in create_pending_metrics(clase):
         db.session.add(metrica)
 
     db.session.commit()
+
+    return {
+        "clase_id": str(clase.id),
+        "uploads": uploads,
+        "redirect_url": url_for("dashboard.session_detail", clase_id=clase.id),
+    }
+
+
+def finalize_class_upload(clase_id: str) -> Clase:
+    """Verifica que los archivos llegaron a S3, marca la clase lista y dispara el análisis."""
+    clase = get_clase(clase_id)
+    if clase is None:
+        raise UploadValidationError("Clase no encontrada.")
+    if clase.status != CLASE_AWAITING_UPLOAD:
+        raise UploadValidationError("Clase ya finalizada.")
+
+    for archivo in clase.archivos:
+        if archivo.s3_key and not s3_client.check_object_exists(
+            archivo.s3_bucket, archivo.s3_key
+        ):
+            raise UploadValidationError(f"Archivo {archivo.tipo} no encontrado en S3.")
+
+    clase.status = "pendiente_analisis"
+    db.session.commit()
+
     enqueue_analysis(str(clase.id))
     return clase
 

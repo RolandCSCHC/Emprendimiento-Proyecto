@@ -9,13 +9,15 @@
   <a class="btn btn-primary" href="{{ url_for('uploads.upload') }}">Nueva clase</a>
 </section>
 
+{% set _labels = {"pendiente_analisis": "Pendiente", "analizando": "Analizando", "completada": "Completada", "completada_parcial": "Completada parcial", "error": "Error"} %}
+{% set _badges = {"completada": "badge-success", "completada_parcial": "badge-success", "error": "badge-error"} %}
 {% if clases %}
   <div class="session-grid">
     {% for clase in clases %}
       <article class="session-card">
         <div class="session-card-header">
           <h2>{{ clase.nombre }}</h2>
-          <span class="badge badge-pending">Pendiente</span>
+          <span class="badge {{ _badges.get(clase.status, 'badge-pending') }}">{{ _labels.get(clase.status, clase.status) }}</span>
         </div>
         <p class="session-meta">
           <strong>Tipo:</strong> {{ clase.tipo_clase.nombre }}<br>

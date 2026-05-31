@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -10,13 +11,10 @@ from werkzeug.utils import secure_filename
 from flask import current_app
 
 from app.extensions import db
-from app.models import AnalisisJob, ArchivoMedia, Clase
+from app.models import ArchivoMedia, Clase
 from app.services.analysis_service import enqueue_analysis
-from app.services.class_service import (
-    create_pending_analysis_jobs,
-    create_pending_metrics,
-    get_clase,
-)
+from app.services.aws import s3_client
+from app.services.class_service import create_pending_metrics, get_clase
 
 
 class UploadValidationError(Exception):
@@ -39,17 +37,44 @@ def _parse_fecha(fecha_str: str) -> datetime:
         raise UploadValidationError("Formato de fecha inválido.") from exc
 
 
+def _stream_size(file: FileStorage) -> int:
+    """Tamaño del archivo subido, sin consumir el stream."""
+    stream = file.stream
+    pos = stream.tell()
+    stream.seek(0, os.SEEK_END)
+    size = stream.tell()
+    stream.seek(pos)
+    return size
+
+
 def _save_file(clase_id: uuid.UUID, file: FileStorage, prefix: str) -> ArchivoMedia:
     original = secure_filename(file.filename or "")
     extension = original.rsplit(".", 1)[1].lower()
+    tipo = "video" if prefix == "video" else "audio"
+
+    # Con AWS activo: el archivo va directo a S3 (no al disco). El pipeline lo
+    # procesará desde ahí. Sin AWS: se guarda local para que la app funcione igual.
+    if current_app.config.get("AWS_ENABLED"):
+        bucket = current_app.config["S3_BUCKET"]
+        key = f"clases/{clase_id}/{prefix}.{extension}"
+        tamano = _stream_size(file)
+        s3_client.upload_fileobj(file.stream, bucket, key, content_type=file.mimetype)
+        return ArchivoMedia(
+            tipo=tipo,
+            nombre_original=original,
+            extension=extension,
+            s3_bucket=bucket,
+            s3_key=key,
+            tamano_bytes=tamano,
+            mime_type=file.mimetype,
+        )
+
     filename = f"{prefix}.{extension}"
     clase_dir = current_app.config["UPLOAD_FOLDER"] / str(clase_id)
     clase_dir.mkdir(parents=True, exist_ok=True)
     destination = clase_dir / filename
     file.save(destination)
     tamano = destination.stat().st_size
-
-    tipo = "video" if prefix == "video" else "audio"
     return ArchivoMedia(
         tipo=tipo,
         nombre_original=original,
@@ -123,11 +148,10 @@ def create_class_session(
 
     db.session.flush()
 
+    # Las métricas se pre-crean en estado pending (para que el dashboard muestre
+    # las 5 tarjetas). Los jobs los crea el pipeline (no se pre-crean aquí).
     for metrica in create_pending_metrics(clase):
         db.session.add(metrica)
-
-    for job in create_pending_analysis_jobs(clase):
-        db.session.add(job)
 
     db.session.commit()
     enqueue_analysis(str(clase.id))
@@ -212,23 +236,6 @@ def update_class_session(
 
     if not clase.archivos:
         raise UploadValidationError("La clase debe tener al menos un archivo de video o audio.")
-
-    db.session.flush()
-
-    existing_job_archivo_ids = {
-        job.archivo_media_id for job in clase.analisis_jobs if job.archivo_media_id
-    }
-    for archivo in clase.archivos:
-        if archivo.id not in existing_job_archivo_ids:
-            servicio = "rekognition" if archivo.tipo == "video" else "transcribe"
-            db.session.add(
-                AnalisisJob(
-                    clase=clase,
-                    archivo=archivo,
-                    servicio=servicio,
-                    status="pending",
-                )
-            )
 
     db.session.commit()
 

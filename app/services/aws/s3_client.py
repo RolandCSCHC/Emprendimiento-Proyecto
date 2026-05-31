@@ -1,12 +1,8 @@
-"""Lectura y validación de archivos de media en Amazon S3.
-
-Los videos ya están en S3 (no se sube nada desde la app), así que este módulo
-solo verifica existencia, construye URIs y genera URLs pre-firmadas.
-"""
+"""Lectura, subida y validación de archivos de media en Amazon S3."""
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 from botocore.exceptions import ClientError
 
@@ -14,6 +10,25 @@ from app.services.aws.boto_session import get_boto_client
 
 # Códigos de error de S3/botocore que significan "el objeto no existe".
 _NOT_FOUND_CODES = {"404", "NoSuchKey", "NotFound"}
+
+
+def upload_fileobj(fileobj: Any, bucket: str, key: str, content_type: Optional[str] = None) -> tuple[str, str]:
+    """
+    Sube un archivo (stream/FileStorage) a S3 sin pasar por disco.
+
+    Args:
+        fileobj: objeto tipo archivo (p. ej. ``werkzeug FileStorage`` o ``.stream``).
+        bucket: bucket destino.
+        key: clave del objeto en S3.
+        content_type: MIME opcional para guardarlo como metadato.
+
+    Returns:
+        Tupla ``(bucket, key)`` del objeto subido.
+    """
+    client = get_boto_client("s3")
+    extra_args = {"ContentType": content_type} if content_type else None
+    client.upload_fileobj(fileobj, bucket, key, ExtraArgs=extra_args)
+    return bucket, key
 
 
 def check_object_exists(bucket: str, key: str) -> bool:

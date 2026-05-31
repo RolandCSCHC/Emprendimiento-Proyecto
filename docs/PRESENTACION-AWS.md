@@ -180,11 +180,15 @@ Detalle clave: las respuestas crudas de AWS se guardan en `analisis_jobs.raw_res
 
 | Métrica | Sale de | Cómo se calcula (resumen) |
 |---------|---------|---------------------------|
-| **Asistencia** | Rekognition Person Tracking | Cuenta personas únicas (`PersonIndex` distintos). |
-| **Permanencia** | Rekognition Person Tracking | % de personas presentes ≥80% de la duración. |
+| **Asistencia** | Rekognition Face Detection* | Pico de caras simultáneas (inicio/mitad/final del video). |
+| **Permanencia** | Rekognition Face Detection* | % de personas (caras) presentes al final vs. al inicio. |
 | **Claridad de instrucciones** | Transcribe | Score 0-100 según palabras/min (óptimo 120-160), largo de frases y pausas. |
 | **Habla vs. demostración** | Transcribe | % del tiempo con voz vs. silencio (fusiona palabras en segmentos de habla). |
 | **Satisfacción del alumno** | Rekognition Face Detection + Comprehend | 70% emociones faciales (HAPPY/SURPRISED suman, SAD/ANGRY restan) + 30% sentimiento del texto. |
+
+> *Originalmente asistencia/permanencia usaban **Person Tracking**, pero AWS lo descontinuó
+> (ver hallazgo 1). Se reemplazó por conteo de caras de **Face Detection** por tercio del
+> video. El código mantiene Person Tracking como fuente primaria si algún día revive.
 
 ---
 
@@ -214,20 +218,22 @@ Se corrió el pipeline **de verdad** contra una cuenta AWS, con los 4 videos rea
 (uno de 15 s y tres clases completas de 45-61 min).
 
 **Funcionó end-to-end en las 4 clases:** cada video recorrió todo el flujo
-(lanzar jobs → polling → métricas → estado `completada`) y produjo **3 de las 5 métricas
-con datos reales** (claridad, satisfacción, habla/demo). Asistencia y permanencia quedaron
-en 0 por el bloqueo de Person Tracking (ver hallazgo 1).
+(lanzar jobs → polling → métricas → estado `completada`) y produjo **las 5 métricas con
+datos reales**.
 
 **Tres hallazgos durante la prueba** (todos típicos de integrar con AWS, y cada uno dejó el
 sistema mejor):
 
-1. **Person Tracking bloqueado por la cuenta.** `StartPersonTracking` devolvía
-   `AccessDenied` con mensaje vacío, **solo esa acción** (FaceDetection, LabelDetection y
-   las APIs base de Rekognition sí funcionaban). Diagnóstico: la cuenta tiene un **SCP**
-   (Service Control Policy: política a nivel de organización que está por encima de los
-   permisos del usuario) que deniega específicamente `StartPersonTracking`. **No es un bug
-   del código ni de los permisos del usuario** — es una restricción de la cuenta (común en
-   cuentas de taller/sandbox). Por eso asistencia y permanencia quedan en 0.
+1. **AWS descontinuó Person Tracking (People Pathing).** `StartPersonTracking` devolvía
+   `AccessDenied` con mensaje vacío, **solo esa acción** (FaceDetection, LabelDetection,
+   ContentModeration, SegmentDetection y las APIs base de Rekognition sí funcionaban).
+   Tras descartar IAM, permission boundary, SCP (la cuenta es la *management account*, donde
+   los SCP no aplican) y región, la causa real es que **AWS retiró Amazon Rekognition People
+   Pathing el 31-oct-2025** — por eso bloquea esa única acción. **No es un bug nuestro.**
+   **Solución implementada:** asistencia y permanencia ahora se derivan de **Face Detection**
+   (conteo de caras simultáneas por tercio del video: inicio/mitad/final), reusando los jobs
+   que ya corrimos (costo extra ~0). Para producción, la ruta robusta es Label Detection
+   ("Person") o YOLOv9 + ByteTrack en SageMaker (lo que recomienda AWS).
 
 2. **Formato del URI de Transcribe.** Transcribe quiere la "key" del objeto S3 **literal**
    (con espacios y `#` tal cual), no URL-encoded. Se corrigió.
@@ -250,14 +256,16 @@ sistema mejor):
 Las 4 clases reales en S3 se procesaron completas. Valores generados **automáticamente
 desde el video** por Transcribe + Rekognition Face Detection + Comprehend:
 
-| Clase | Duración | Claridad | Satisfacción | Habla vs. demo |
-|-------|----------|----------|--------------|----------------|
-| Silver Sneakers | 12 s | 86 | 58 | 54.7 % |
-| Mat Pilates | 45 min | 72 | 60 | 73.4 % |
-| Reformer | 57 min | 78 | 54 | 65.3 % |
-| Hot Pilates | 61 min | 74 | 62 | 69.6 % |
+| Clase | Duración | Asistencia | Permanencia | Claridad | Satisfacción | Habla vs. demo |
+|-------|----------|-----------|-------------|----------|--------------|----------------|
+| Silver Sneakers | 12 s | 5 | 66.7 % | 86 | 58 | 54.7 % |
+| Mat Pilates | 45 min | 16 | 100 % | 72 | 60 | 73.4 % |
+| Reformer | 57 min | 12 | 83.3 % | 78 | 54 | 65.3 % |
+| Hot Pilates | 61 min | 28 | 100 % | 74 | 62 | 69.6 % |
 
-*(Asistencia y permanencia salen 0 en todas por el SCP que bloquea Person Tracking.)*
+*(Asistencia = pico de caras simultáneas; permanencia = % de caras al final vs. inicio.
+Cuenta caras visibles, así que es un piso — para producción, Label Detection / YOLOv9 sería
+más preciso.)*
 
 **Patrón coherente** (buen punto para presentar): clases de pilates con ambiente
 predominantemente **CALM**, instructor hablando 65-73 % del tiempo, y claridad 72-86 con
@@ -293,14 +301,16 @@ docker compose exec web flask aws-poll-jobs
 ## 10. Estado y próximos pasos
 
 **Hecho y verificado:**
-- Las 16 tareas del plan implementadas, con **57/57 tests** pasando (mockeando AWS).
-- Pipeline probado **en real** contra AWS: 3 métricas con datos reales end-to-end.
+- Las 16 tareas del plan implementadas, con **61/61 tests** pasando (mockeando AWS).
+- Pipeline probado **en real** contra AWS: **las 5 métricas** con datos reales end-to-end,
+  en las 4 clases.
 
 **Pendiente / mejoras:**
-- Habilitar `StartPersonTracking` en la cuenta (quitar el SCP) para tener asistencia y
-  permanencia. Es un cambio de **configuración de AWS**, no de código.
-- Terminar la corrida de los videos de 1 h (FaceDetection tarda ~20-35 min en videos largos).
+- Asistencia/permanencia más precisas: migrar de Face Detection a **Label Detection
+  ("Person")** o **YOLOv9 + ByteTrack** en SageMaker (recomendado por AWS) — capta gente de
+  espaldas o en el suelo, no solo caras.
 - Subir el código y abrir los Pull Requests (hoy está en ramas locales).
+- Rotar las credenciales de AWS usadas en la demo (higiene de seguridad).
 
 ---
 

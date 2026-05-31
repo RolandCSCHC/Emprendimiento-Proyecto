@@ -251,7 +251,8 @@ Bloque de métricas (Tasks 11–14) implementado y verificado.
 Se ejecutó el pipeline contra una cuenta AWS real con los 4 videos en S3. Hallazgos y arreglos (rama `fix-jsonb-aggregate`, sobre `demo-cli-analyze`):
 
 - **Comando `flask aws-analyze`** (rama `demo-cli-analyze`): dispara el análisis de las clases sembradas (la app solo auto-disparaba al subir archivos).
-- **Pipeline robusto**: si el lanzamiento de un servicio falla (p. ej. SCP que bloquea `StartPersonTracking`), se marca ese job `failed` y se continúa con los demás (no aborta la clase). El poller dispara métricas cuando los jobs están en estado terminal.
+- **Pipeline robusto**: si el lanzamiento de un servicio falla (p. ej. `StartPersonTracking`, descontinuado por AWS), se marca ese job `failed` y se continúa con los demás (no aborta la clase). El poller dispara métricas cuando los jobs están en estado terminal.
+- **People Pathing descontinuado**: `StartPersonTracking` da `AccessDenied` (vacío) porque AWS retiró Rekognition People Pathing el 31-oct-2025 (no es IAM/SCP/región — descartados; la cuenta es management, donde los SCP no aplican). **Solución**: asistencia y permanencia se derivan de **Face Detection** (pico de caras simultáneas por tercio: inicio/mitad/final), reusando los jobs ya corridos (costo ~0). Producción: Label Detection "Person" o YOLOv9+ByteTrack.
 - **Transcribe URI**: usa la key S3 literal (no URL-encoded).
 - **Fix límite JSONB (256 MB)**: FaceDetection de 1 h devolvía ~245 MB → excedía el límite de Postgres y el job no se guardaba. Ahora `get_face_detection_result`/`get_person_tracking_result` **agregan al vuelo** y guardan un resumen compacto (~300 bytes). Escala a cualquier duración. El `detalle` de las métricas (lo que lee el dashboard) no cambió.
 - **Resultado**: las 4 clases quedaron `completada` con 3 métricas reales (claridad, satisfacción, habla/demo). Asistencia/permanencia en 0 por el SCP. 58 tests pasan.

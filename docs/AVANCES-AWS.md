@@ -194,5 +194,22 @@ _Pendiente._
 ### Task 14 — apply_metrics_to_clase y estado de clase
 _Pendiente._
 
+## Checkpoint Task 10 — Verificar orquestación y detección de completitud ✅
+Bloque de orquestación (Tasks 7–9) implementado y verificado.
+
+**Resultado:** suite completa contra **Postgres** → **35/35 tests pasan** (`2.14s`).
+
+```
+docker build -t gymsight-test .
+docker network create gymsight-net
+docker run -d --name gymsight-pg --network gymsight-net \
+  -e POSTGRES_USER=gymsight -e POSTGRES_PASSWORD=gymsight -e POSTGRES_DB=gymsight postgres:16-alpine
+docker run --rm --network gymsight-net \
+  -e TEST_DATABASE_URL=postgresql://gymsight:gymsight@gymsight-pg:5432/gymsight \
+  --entrypoint pytest gymsight-test -q
+```
+
+---
+
 ### Task 16 — Integración final y verificación end-to-end
 _Pendiente._

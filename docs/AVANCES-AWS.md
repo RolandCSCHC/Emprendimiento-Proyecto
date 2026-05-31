@@ -32,7 +32,7 @@ main
 | 6 | *Checkpoint — verificar clientes AWS* | ⬜ Pendiente | (gate, sin PR) | — |
 | 7 | Pipeline Orchestrator | 📦 Commit local | `task-7-pipeline` | — |
 | 8 | Job Poller | 📦 Commit local | `task-8-job-poller` | — |
-| 9 | Webhook SNS | ⬜ Pendiente | — | — |
+| 9 | Webhook SNS | 📦 Commit local | `task-9-webhook` | — |
 | 10 | *Checkpoint — orquestación y completitud* | ⬜ Pendiente | (gate, sin PR) | — |
 | 11 | Metrics Extractor — Asistencia y Permanencia | ⬜ Pendiente | — | — |
 | 12 | Metrics Extractor — Claridad y Ratio habla/demo | ⬜ Pendiente | — | — |
@@ -169,7 +169,18 @@ docker run --rm --entrypoint pytest gymsight-test -v
 **Verificación:** sintaxis OK. pytest con DB se corre en el Checkpoint 10.
 
 ### Task 9 — Webhook SNS
-_Pendiente._
+📦 Commit local (rama `task-9-webhook`, sobre `task-8-job-poller`).
+
+**Qué se hizo (`app/routes/webhooks.py`):**
+- `POST /webhooks/aws/sns`: parsea el cuerpo, valida la firma y enruta por tipo.
+- `_verify_sns_signature`: descarga el certificado X.509 (solo hosts `*.amazonaws.com`, anti-SSRF), arma el string canónico según el tipo y verifica la firma RSA (SHA1 v1 / SHA256 v2). Firma inválida → 403.
+- `SubscriptionConfirmation`: hace GET a `SubscribeURL` y responde 200.
+- `Notification`: extrae `JobId` del `Message`, busca el `AnalisisJob` y llama `process_completed_job`; 400 si no hay job_id válido o no se encuentra.
+- `requirements.txt`: + `cryptography>=42.0` (verificación de firma).
+
+**Tests (`tests/test_webhooks.py`):** JSON inválido (400), firma inválida (403), SubscriptionConfirmation (200 + GET), Notification procesa job (200), sin job_id (400), job inexistente (400).
+
+**Verificación:** sintaxis OK. pytest con DB en el Checkpoint 10.
 
 ### Task 11 — Metrics Extractor: Asistencia y Permanencia
 _Pendiente._

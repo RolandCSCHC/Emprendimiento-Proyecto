@@ -26,7 +26,7 @@ main
 |------|-------------|--------|------|----|
 | 1 | Configuración del proyecto y dependencias AWS | 📦 Commit local | `task-1-config` | — |
 | 2 | S3 Client | 📦 Commit local | `task-2-s3-client` | — |
-| 3 | Rekognition Client | ⬜ Pendiente | — | — |
+| 3 | Rekognition Client | 📦 Commit local | `task-3-rekognition` | — |
 | 4 | Transcribe Client | ⬜ Pendiente | — | — |
 | 5 | Comprehend Client | ⬜ Pendiente | — | — |
 | 6 | *Checkpoint — verificar clientes AWS* | ⬜ Pendiente | (gate, sin PR) | — |
@@ -84,7 +84,20 @@ main
 **Verificación:** `python -m py_compile` OK. Ejecución de pytest pendiente de entorno con deps (Checkpoint Task 6).
 
 ### Task 3 — Rekognition Client
-_Pendiente._
+📦 Commit local (rama `task-3-rekognition`, sobre `task-2-s3-client`).
+
+**Qué se hizo (`app/services/aws/rekognition_client.py`):**
+- Refactor de la interfaz: se reemplazan `start_video_analysis`/`get_video_job_result` por 4 funciones específicas.
+- `start_person_tracking(bucket, key, sns_topic_arn=None)` → `JobId`.
+- `start_face_detection(bucket, key, sns_topic_arn=None)` con `FaceAttributes='ALL'` → `JobId`.
+- `get_person_tracking_result(job_id)` → `{status, raw, persons}` (paginando `NextToken`).
+- `get_face_detection_result(job_id)` → `{status, raw, faces}` (paginando). Incluye `error` si el job falló.
+- `NotificationChannel` (SNS) solo si hay topic **y** `REKOGNITION_SNS_ROLE_ARN` (Rekognition exige RoleArn); si no, se resuelve por polling.
+- `app/services/aws/__init__.py`: actualizado a los nuevos nombres (la limpieza del `upload_archivo_to_s3` se reincorporó al commit de la Task 2).
+
+**Tests (`tests/test_rekognition_client.py`):** inicio de ambos jobs, consulta en progreso, completado con paginación, y fallido (mockeando el cliente boto3).
+
+**Verificación:** `python -m py_compile` OK. pytest pendiente de entorno (Checkpoint Task 6).
 
 ### Task 4 — Transcribe Client
 _Pendiente._

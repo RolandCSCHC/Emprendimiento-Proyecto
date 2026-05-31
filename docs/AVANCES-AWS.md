@@ -37,7 +37,7 @@ main
 | 11 | Metrics Extractor — Asistencia y Permanencia | 📦 Commit local | `task-11-metrics-asistencia` | — |
 | 12 | Metrics Extractor — Claridad y Ratio habla/demo | 📦 Commit local | `task-12-metrics-claridad` | — |
 | 13 | Metrics Extractor — Satisfacción del Alumno | 📦 Commit local | `task-13-metrics-satisfaccion` | — |
-| 14 | `apply_metrics_to_clase` + estado de clase | ⬜ Pendiente | — | — |
+| 14 | `apply_metrics_to_clase` + estado de clase | 📦 Commit local | `task-14-apply-metrics` | — |
 | 15 | *Checkpoint — extracción de métricas* | ⬜ Pendiente | (gate, sin PR) | — |
 | 16 | Integración final y verificación end-to-end | ⬜ Pendiente | — | — |
 | 17 | *Checkpoint final* | ⬜ Pendiente | (gate, sin PR) | — |
@@ -219,7 +219,22 @@ docker run --rm --entrypoint pytest gymsight-test -v
 **Verificación:** `pytest tests/test_metrics_satisfaccion.py` → 5 passed.
 
 ### Task 14 — apply_metrics_to_clase y estado de clase
-_Pendiente._
+📦 Commit local (rama `task-14-apply-metrics`, sobre `task-13-metrics-satisfaccion`).
+
+**Qué se hizo (`metrics_extractor.py`):**
+- `apply_metrics_to_clase`: corre Comprehend sobre el transcript (convierte `es-ES`→`es`), ejecuta los 5 extractores, hace upsert en `metricas` (`_guardar_metrica`, por `clase_id`+`clave`). Si un extractor falla, marca esa métrica `failed` y sigue.
+- Estado de clase: todas completas → `completada`; alguna falla → `completada_parcial`; actualiza `updated_at`.
+
+**Tests (`tests/test_apply_metrics.py`):** las 5 métricas completan → clase `completada`; un fallo → `completada_parcial`; upsert idempotente (no duplica). Mockea Comprehend.
+
+**Verificación:** ver Checkpoint 15.
+
+---
+
+## Checkpoint Task 15 — Verificar extracción de métricas ✅
+Bloque de métricas (Tasks 11–14) implementado y verificado.
+
+**Resultado:** suite completa contra **Postgres** → **54/54 tests pasan** (`2.66s`).
 
 ## Checkpoint Task 10 — Verificar orquestación y detección de completitud ✅
 Bloque de orquestación (Tasks 7–9) implementado y verificado.

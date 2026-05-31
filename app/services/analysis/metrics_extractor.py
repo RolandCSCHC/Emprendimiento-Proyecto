@@ -8,13 +8,28 @@ ver design) y devuelve ``{valor_numerico, unidad, confianza, detalle}``.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any, Callable, Optional
 
+from flask import current_app
+
+from app.extensions import db
+from app.models import Metrica
 from app.services.analysis.constants import (
+    CLASE_COMPLETADA,
+    CLASE_COMPLETADA_PARCIAL,
+    METRICA_COMPLETED,
+    METRICA_FAILED,
     SERVICE_FACE_DETECTION,
     SERVICE_PERSON_TRACKING,
     SERVICE_TRANSCRIBE,
 )
+from app.services.aws import comprehend_client
+from app.services.class_service import get_clase
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
 
 UMBRAL_PERMANENCIA_PCT = 80
 WPM_OPTIMO = (120, 160)  # palabras/min óptimas para instrucciones de fitness
@@ -360,5 +375,51 @@ METRIC_EXTRACTORS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
 
 
 def apply_metrics_to_clase(clase_id: str, combined_raw_data: dict[str, Any]) -> None:
-    """Ejecuta todos los extractores y persiste en la tabla ``metricas``."""
-    raise NotImplementedError("apply_metrics_to_clase pendiente (Task 14).")
+    """Ejecuta todos los extractores, persiste las métricas y actualiza la clase."""
+    clase = get_clase(clase_id)
+    if clase is None:
+        current_app.logger.warning("apply_metrics_to_clase: clase %s no existe", clase_id)
+        return
+
+    # Sentimiento del transcript (Comprehend) como insumo de satisfacción.
+    tr = combined_raw_data.get(SERVICE_TRANSCRIBE) or {}
+    transcript = tr.get("transcript") or ""
+    lang = current_app.config.get("TRANSCRIBE_LANGUAGE_CODE", "es-ES").split("-")[0]
+    combined_raw_data["comprehend"] = comprehend_client.analyze_sentiment(transcript, lang)
+
+    estados: list[str] = []
+    for clave, extractor in METRIC_EXTRACTORS.items():
+        try:
+            resultado = extractor(combined_raw_data)
+            _guardar_metrica(clase.id, clave, resultado, METRICA_COMPLETED)
+            estados.append(METRICA_COMPLETED)
+        except Exception as exc:  # noqa: BLE001 - un fallo no detiene las demás métricas
+            current_app.logger.exception("Error calculando métrica %s: %s", clave, exc)
+            _guardar_metrica(clase.id, clave, None, METRICA_FAILED)
+            estados.append(METRICA_FAILED)
+
+    if all(estado == METRICA_COMPLETED for estado in estados):
+        clase.status = CLASE_COMPLETADA
+    else:
+        clase.status = CLASE_COMPLETADA_PARCIAL
+    clase.updated_at = _now()
+    db.session.commit()
+
+
+def _guardar_metrica(
+    clase_id: Any, clave: str, resultado: Optional[dict[str, Any]], status: str
+) -> None:
+    """Crea o actualiza (upsert por clase_id + clave) una fila de ``metricas``."""
+    metrica = Metrica.query.filter_by(clase_id=clase_id, clave=clave).first()
+    if metrica is None:
+        metrica = Metrica(clase_id=clase_id, clave=clave)
+        db.session.add(metrica)
+
+    metrica.status = status
+    metrica.calculado_at = _now()
+    if resultado is not None:
+        metrica.valor_numerico = resultado.get("valor_numerico")
+        metrica.valor_texto = resultado.get("valor_texto")
+        metrica.unidad = resultado.get("unidad")
+        metrica.confianza = resultado.get("confianza")
+        metrica.detalle = resultado.get("detalle")

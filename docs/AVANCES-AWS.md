@@ -129,8 +129,17 @@ main
 
 ---
 
-## Checkpoint Task 6 — Verificar clientes AWS individuales
-Bloque de clientes AWS (Tasks 1–5) implementado y commiteado localmente. **Pendiente:** correr la suite `pytest` en un entorno con dependencias instaladas (Docker o venv con `pip install -r requirements.txt`). Hasta entonces solo se validó sintaxis (`py_compile`).
+## Checkpoint Task 6 — Verificar clientes AWS individuales ✅
+Bloque de clientes AWS (Tasks 1–5) implementado y verificado.
+
+**Resultado:** `pytest` ejecutado en Docker (imagen `gymsight-test` con deps de `requirements.txt`) → **20/20 tests pasan** (`0.87s`).
+
+```
+docker build -t gymsight-test .
+docker run --rm --entrypoint pytest gymsight-test -v
+```
+
+**Fix aplicado:** se agregó `pythonpath = .` a `pytest.ini` para que pytest encuentre el paquete `app` (scaffolding de la Task 1, detectado al correr la suite).
 
 ### Task 7 — Pipeline Orchestrator
 _Pendiente._

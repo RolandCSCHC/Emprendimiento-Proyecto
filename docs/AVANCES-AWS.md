@@ -27,7 +27,7 @@ main
 | 1 | Configuración del proyecto y dependencias AWS | 📦 Commit local | `task-1-config` | — |
 | 2 | S3 Client | 📦 Commit local | `task-2-s3-client` | — |
 | 3 | Rekognition Client | 📦 Commit local | `task-3-rekognition` | — |
-| 4 | Transcribe Client | ⬜ Pendiente | — | — |
+| 4 | Transcribe Client | 📦 Commit local | `task-4-transcribe` | — |
 | 5 | Comprehend Client | ⬜ Pendiente | — | — |
 | 6 | *Checkpoint — verificar clientes AWS* | ⬜ Pendiente | (gate, sin PR) | — |
 | 7 | Pipeline Orchestrator | ⬜ Pendiente | — | — |
@@ -100,7 +100,16 @@ main
 **Verificación:** `python -m py_compile` OK. pytest pendiente de entorno (Checkpoint Task 6).
 
 ### Task 4 — Transcribe Client
-_Pendiente._
+📦 Commit local (rama `task-4-transcribe`, sobre `task-3-rekognition`).
+
+**Qué se hizo (`app/services/aws/transcribe_client.py`):**
+- `start_transcription(s3_uri, language_code="es-ES", output_bucket=None)`: genera nombre único `gymsight-{uuid}`, lanza `start_transcription_job` con `Settings.ShowSpeakerLabels=False`, deriva `MediaFormat` de la extensión y acepta cualquier idioma. Retorna el nombre del job.
+- `get_transcription_result(job_name)`: consulta el job y, si terminó, descarga el JSON de resultados (con `requests`). Retorna `{status, transcript, raw}`; `error` si falló.
+- Normalización de estado: Transcribe usa `COMPLETED` → se mapea a `SUCCEEDED` para unificar con Rekognition y el poller.
+
+**Tests (`tests/test_transcribe_client.py`):** inicio con 3 idiomas (es-ES/en-US/pt-BR), en progreso, completado (con descarga mockeada) y fallido.
+
+**Verificación:** `python -m py_compile` OK. pytest pendiente de entorno (Checkpoint Task 6).
 
 ### Task 5 — Comprehend Client
 _Pendiente._

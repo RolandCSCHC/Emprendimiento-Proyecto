@@ -39,8 +39,8 @@ main
 | 13 | Metrics Extractor — Satisfacción del Alumno | 📦 Commit local | `task-13-metrics-satisfaccion` | — |
 | 14 | `apply_metrics_to_clase` + estado de clase | 📦 Commit local | `task-14-apply-metrics` | — |
 | 15 | *Checkpoint — extracción de métricas* | ⬜ Pendiente | (gate, sin PR) | — |
-| 16 | Integración final y verificación end-to-end | ⬜ Pendiente | — | — |
-| 17 | *Checkpoint final* | ⬜ Pendiente | (gate, sin PR) | — |
+| 16 | Integración final y verificación end-to-end | 📦 Commit local | `task-16-integracion` | — |
+| 17 | *Checkpoint final* | ✅ 57/57 | (gate, sin PR) | — |
 
 **Leyenda:** ⬜ Pendiente · 🟡 En progreso · 📦 Commit local (pendiente push/PR) · ✅ Mergeado
 
@@ -235,6 +235,21 @@ docker run --rm --entrypoint pytest gymsight-test -v
 Bloque de métricas (Tasks 11–14) implementado y verificado.
 
 **Resultado:** suite completa contra **Postgres** → **54/54 tests pasan** (`2.66s`).
+
+---
+
+### Task 16 — Integración final y verificación end-to-end
+📦 Commit local (rama `task-16-integracion`, sobre `task-14-apply-metrics`).
+
+**Qué se hizo (`tests/test_integration.py`):**
+- AWS deshabilitado: `enqueue_analysis` es no-op y la app arranca sin credenciales (la fixture `app` usa `AWS_ENABLED=false`).
+- CLI `flask aws-poll-jobs` ejecuta sin error y reporta `Jobs procesados: 0` cuando no hay jobs.
+- Flujo completo: `enqueue` (3 jobs) → `poll` (todos SUCCEEDED) → 5 métricas `completed` → clase `completada`, con todos los servicios AWS mockeados.
+
+## Checkpoint Task 17 — Final ✅
+**Toda la fase AWS implementada y verificada.** Suite completa contra Postgres → **57/57 tests pasan** (`2.90s`).
+
+El pipeline queda funcional de punta a punta: video en S3 → Rekognition/Transcribe → polling/webhook → Comprehend + 5 métricas → tabla `metricas` → dashboard. Pendiente solo: push de las ramas y apertura de PRs cuando haya acceso de escritura, y la corrida real contra AWS con credenciales en `.env`.
 
 ## Checkpoint Task 10 — Verificar orquestación y detección de completitud ✅
 Bloque de orquestación (Tasks 7–9) implementado y verificado.

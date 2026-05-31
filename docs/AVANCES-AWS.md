@@ -36,7 +36,7 @@ main
 | 10 | *Checkpoint — orquestación y completitud* | ⬜ Pendiente | (gate, sin PR) | — |
 | 11 | Metrics Extractor — Asistencia y Permanencia | 📦 Commit local | `task-11-metrics-asistencia` | — |
 | 12 | Metrics Extractor — Claridad y Ratio habla/demo | 📦 Commit local | `task-12-metrics-claridad` | — |
-| 13 | Metrics Extractor — Satisfacción del Alumno | ⬜ Pendiente | — | — |
+| 13 | Metrics Extractor — Satisfacción del Alumno | 📦 Commit local | `task-13-metrics-satisfaccion` | — |
 | 14 | `apply_metrics_to_clase` + estado de clase | ⬜ Pendiente | — | — |
 | 15 | *Checkpoint — extracción de métricas* | ⬜ Pendiente | (gate, sin PR) | — |
 | 16 | Integración final y verificación end-to-end | ⬜ Pendiente | — | — |
@@ -208,7 +208,15 @@ docker run --rm --entrypoint pytest gymsight-test -v
 **Verificación:** `pytest tests/test_metrics_claridad.py` → 6 passed.
 
 ### Task 13 — Metrics Extractor: Satisfacción del Alumno
-_Pendiente._
+📦 Commit local (rama `task-13-metrics-satisfaccion`, sobre `task-12-metrics-claridad`).
+
+**Qué se hizo (`metrics_extractor.py`):**
+- Helpers: `_clamp`, `_agregar_emociones` (suma confianza por emoción + confianzas de rostro), `_combinar_scores` (70% visual / 30% textual según disponibilidad).
+- `extract_satisfaccion_alumno`: pondera emociones (HAPPY/SURPRISED positivas, SAD/ANGRY negativas) → score visual 0-100; si hay Comprehend, combina 70/30 con el score textual. Sin datos → 0 con confianza 0.
+
+**Tests (`tests/test_metrics_satisfaccion.py`):** solo visual positivo/negativo, visual+textual (92), solo textual, y sin datos. **5/5 pasan.**
+
+**Verificación:** `pytest tests/test_metrics_satisfaccion.py` → 5 passed.
 
 ### Task 14 — apply_metrics_to_clase y estado de clase
 _Pendiente._

@@ -93,6 +93,45 @@ def _rango_score(value: float, low: float, high: float, penalti: float = 1.0) ->
     return max(0.0, 100.0 - penalti * dist)
 
 
+def _clamp(value: float, low: float = 0.0, high: float = 100.0) -> float:
+    return max(low, min(high, value))
+
+
+# Emociones de Rekognition ponderadas para satisfacción.
+_EMOCIONES_POSITIVAS = ("HAPPY", "SURPRISED")
+_EMOCIONES_NEGATIVAS = ("SAD", "ANGRY")
+
+
+def _agregar_emociones(faces: list[dict[str, Any]]) -> tuple[dict[str, float], list[float]]:
+    """Suma la confianza por tipo de emoción y recolecta confianzas de rostro (0-1)."""
+    emociones: dict[str, float] = {}
+    face_confs: list[float] = []
+    for face_item in faces:
+        face = face_item.get("Face") or {}
+        conf = face.get("Confidence")
+        if conf is not None:
+            face_confs.append(conf / 100.0)
+        for emo in face.get("Emotions") or []:
+            tipo, c = emo.get("Type"), emo.get("Confidence")
+            if tipo is None or c is None:
+                continue
+            emociones[tipo] = emociones.get(tipo, 0.0) + c
+    return emociones, face_confs
+
+
+def _combinar_scores(
+    visual: Optional[float], textual: Optional[float]
+) -> tuple[Optional[float], float, float]:
+    """Combina score visual (70%) y textual (30%) según disponibilidad."""
+    if visual is not None and textual is not None:
+        return 0.7 * visual + 0.3 * textual, 0.7, 0.3
+    if visual is not None:
+        return visual, 1.0, 0.0
+    if textual is not None:
+        return textual, 0.0, 1.0
+    return None, 0.0, 0.0
+
+
 # --------------------------------------------------------------------------- #
 # Métricas
 # --------------------------------------------------------------------------- #
@@ -252,8 +291,63 @@ def extract_tiempo_hablando_vs_demostrando(raw_data: dict[str, Any]) -> dict[str
 
 
 def extract_satisfaccion_alumno(raw_data: dict[str, Any]) -> dict[str, Any]:
-    """Score compuesto: emociones faciales + sentimiento del texto."""
-    raise NotImplementedError
+    """Score compuesto: emociones faciales (70%) + sentimiento del texto (30%)."""
+    faces = (raw_data.get(SERVICE_FACE_DETECTION) or {}).get("faces") or []
+    comprehend = raw_data.get("comprehend") or {}
+    tiene_texto = comprehend.get("raw") is not None
+
+    emociones_sum, face_confs = _agregar_emociones(faces)
+    total = sum(emociones_sum.values())
+
+    score_visual: Optional[float] = None
+    if total > 0:
+        pos = sum(emociones_sum.get(e, 0.0) for e in _EMOCIONES_POSITIVAS)
+        neg = sum(emociones_sum.get(e, 0.0) for e in _EMOCIONES_NEGATIVAS)
+        score_visual = _clamp(50 + 50 * (pos - neg) / total)
+
+    score_textual: Optional[float] = None
+    if tiene_texto:
+        s = comprehend.get("scores") or {}
+        score_textual = _clamp(50 + 50 * (s.get("positive", 0.0) - s.get("negative", 0.0)))
+
+    score, peso_visual, peso_textual = _combinar_scores(score_visual, score_textual)
+    emociones = (
+        {tipo: round(v / total, 4) for tipo, v in emociones_sum.items()} if total > 0 else {}
+    )
+
+    if score is None:
+        return {
+            "valor_numerico": 0,
+            "unidad": "score",
+            "confianza": 0.0,
+            "detalle": {
+                "score_visual": None,
+                "score_textual": None,
+                "peso_visual": 0.0,
+                "peso_textual": 0.0,
+                "emociones": {},
+            },
+        }
+
+    if face_confs:
+        confianza = _avg(face_confs)
+    elif tiene_texto:
+        confianza = comprehend.get("confidence")
+    else:
+        confianza = None
+
+    return {
+        "valor_numerico": round(score),
+        "unidad": "score",
+        "confianza": confianza,
+        "detalle": {
+            "score_visual": round(score_visual, 1) if score_visual is not None else None,
+            "score_textual": round(score_textual, 1) if score_textual is not None else None,
+            "peso_visual": peso_visual,
+            "peso_textual": peso_textual,
+            "emociones": emociones,
+        },
+    }
 
 
 METRIC_EXTRACTORS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {

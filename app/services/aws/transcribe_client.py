@@ -16,20 +16,22 @@ from app.services.aws.boto_session import get_boto_client
 
 def start_transcription(
     s3_uri: str,
-    language_code: str = "es-ES",
+    language_code: Optional[str] = None,
     output_bucket: Optional[str] = None,
+    language_options: Optional[list[str]] = None,
 ) -> str:
     """
     Inicia un job de transcripción con timestamps por palabra.
 
-    Acepta cualquier ``language_code`` soportado por Transcribe (es-ES, en-US,
-    pt-BR, ...). Genera un nombre de job único y lo retorna como identificador.
+    - Si ``language_code`` es un código concreto (es-ES, en-US, ...), lo usa.
+    - Si es ``None`` o ``"auto"``, activa la **detección automática de idioma**
+      (``IdentifyLanguage``) entre ``language_options`` (por defecto es-ES/en-US).
 
     Args:
         s3_uri: URI del audio/video en S3 (``s3://bucket/key``).
-        language_code: código de idioma del audio.
-        output_bucket: bucket de salida opcional; si es ``None``, Transcribe usa
-            su bucket gestionado y entrega una URL descargable.
+        language_code: código de idioma, o ``None``/``"auto"`` para auto-detectar.
+        output_bucket: bucket de salida opcional.
+        language_options: idiomas candidatos para la auto-detección.
 
     Returns:
         El nombre del job de transcripción.
@@ -39,11 +41,14 @@ def start_transcription(
 
     params: dict[str, Any] = {
         "TranscriptionJobName": job_name,
-        "LanguageCode": language_code,
         "Media": {"MediaFileUri": s3_uri},
-        # ShowSpeakerLabels=False; los timestamps por palabra vienen siempre en los items.
-        "Settings": {"ShowSpeakerLabels": False},
     }
+
+    if language_code and language_code != "auto":
+        params["LanguageCode"] = language_code
+    else:
+        params["IdentifyLanguage"] = True
+        params["LanguageOptions"] = list(language_options) if language_options else ["es-ES", "en-US"]
 
     media_format = s3_uri.rsplit(".", 1)[-1].lower() if "." in s3_uri else None
     if media_format in {"mp3", "mp4", "wav", "flac", "ogg", "amr", "webm"}:
@@ -93,4 +98,10 @@ def get_transcription_result(job_name: str) -> dict[str, Any]:
     transcript_uri = job["Transcript"]["TranscriptFileUri"]
     data = requests.get(transcript_uri, timeout=30).json()
     transcript_text = data["results"]["transcripts"][0]["transcript"]
-    return {"status": "SUCCEEDED", "transcript": transcript_text, "raw": data}
+    return {
+        "status": "SUCCEEDED",
+        "transcript": transcript_text,
+        "raw": data,
+        # Idioma detectado por Transcribe (útil cuando se usó auto-detección).
+        "language_code": job.get("LanguageCode"),
+    }

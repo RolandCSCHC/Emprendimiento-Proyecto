@@ -44,8 +44,12 @@ class Config:
     S3_BUCKET = os.environ.get("S3_BUCKET", "")
     SNS_TOPIC_ARN = os.environ.get("SNS_TOPIC_ARN")
     TRANSCRIBE_OUTPUT_BUCKET = os.environ.get("TRANSCRIBE_OUTPUT_BUCKET")
-    # Idioma por defecto para Transcribe (los videos de demo están en inglés).
-    TRANSCRIBE_LANGUAGE_CODE = os.environ.get("TRANSCRIBE_LANGUAGE_CODE", "es-ES")
+    # Idioma de Transcribe. "auto" detecta automáticamente entre LANGUAGE_OPTIONS;
+    # o pon un código fijo (es-ES, en-US, ...) para forzarlo.
+    TRANSCRIBE_LANGUAGE_CODE = os.environ.get("TRANSCRIBE_LANGUAGE_CODE", "auto")
+    TRANSCRIBE_LANGUAGE_OPTIONS = os.environ.get(
+        "TRANSCRIBE_LANGUAGE_OPTIONS", "es-ES,en-US"
+    ).split(",")
 
 
 class DevelopmentConfig(Config):

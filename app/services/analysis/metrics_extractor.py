@@ -403,9 +403,11 @@ def apply_metrics_to_clase(clase_id: str, combined_raw_data: dict[str, Any]) -> 
         return
 
     # Sentimiento del transcript (Comprehend) como insumo de satisfacción.
+    # Usa el idioma DETECTADO por Transcribe (no el config, que puede ser "auto").
     tr = combined_raw_data.get(SERVICE_TRANSCRIBE) or {}
     transcript = tr.get("transcript") or ""
-    lang = current_app.config.get("TRANSCRIBE_LANGUAGE_CODE", "es-ES").split("-")[0]
+    detectado = tr.get("language_code") or current_app.config.get("TRANSCRIBE_LANGUAGE_CODE", "es-ES")
+    lang = detectado.split("-")[0] if detectado and detectado != "auto" else "es"
     combined_raw_data["comprehend"] = comprehend_client.analyze_sentiment(transcript, lang)
 
     estados: list[str] = []

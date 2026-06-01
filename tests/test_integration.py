@@ -61,7 +61,7 @@ def test_flujo_completo(app, db_session, monkeypatch):
     )
     monkeypatch.setattr(
         pipeline.transcribe_client, "start_transcription",
-        lambda uri, lang="es-ES", out=None: "tr",
+        lambda uri, lang=None, out=None, opts=None: "tr",
     )
 
     clase = crear_clase(tipo_archivo="video")

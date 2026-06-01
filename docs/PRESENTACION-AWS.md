@@ -36,48 +36,44 @@ Mostrar el **diagrama del flujo** (sección 3).
 
 ### Paso 2 — Los servicios de AWS (45 s)
 > "Usamos servicios de IA de AWS, cada uno hace una cosa:
-> - **Rekognition** mira el video: sigue personas y detecta emociones en las caras.
-> - **Transcribe** convierte el audio en texto.
+> - **Rekognition** mira el video: cuenta personas (por sus caras) y detecta emociones.
+> - **Transcribe** convierte el audio en texto (detecta el idioma solo: español o inglés).
 > - **Comprehend** analiza el sentimiento de ese texto.
-> - Todo parte de videos que ya están en **S3**, el disco en la nube de AWS."
+> - Todo se guarda en **S3**, el disco en la nube de AWS."
 
 Mostrar la **tabla de servicios** (sección 2).
 
-### Paso 3 — DEMO EN VIVO (2 min) 🎬
-Tener el `docker compose up` ya corriendo de antes. Entonces:
+### Paso 3 — DEMO EN VIVO (2-3 min) 🎬
+Tener `docker compose up` corriendo, **idealmente con el dump de demo ya restaurado**
+(`gymsight_demo.sql`), así hay clases analizadas listas para mostrar.
 
-1. **Disparar el análisis** de los 4 videos reales en S3:
+1. **Mostrar el dashboard con datos reales** → http://localhost:5001:
+   > "Acá hay clases ya procesadas: claridad del instructor, satisfacción con el desglose de
+   > emociones, cuánta gente asistió y si se quedó hasta el final. **Todo salió de un video,
+   > automáticamente.**"
+
+2. **El 'wow': subir un video nuevo en vivo** → ir a *Subir clase*, subir un **clip corto con
+   voz**:
+   > "Subo un video nuevo... esa barra de progreso es el archivo yendo **directo a S3**. Y el
+   > sistema arranca el análisis solo."
    ```bash
-   docker compose exec web flask aws-analyze
+   docker compose exec web flask aws-poll-jobs   # consultar hasta que termine (~1-3 min)
    ```
-   > "Acá disparo el análisis. La app le pide a AWS que empiece a procesar los videos.
-   > Como son largos, AWS trabaja en segundo plano y nos devuelve un ticket (JobId)."
+   > "En un par de minutos la clase nueva aparece con sus 5 métricas."
 
-2. **Consultar el estado** (mostrar que es asíncrono):
-   ```bash
-   docker compose exec web flask aws-poll-jobs
-   ```
-   > "Este comando le pregunta a AWS si ya terminó. Cuando todos los análisis de una clase
-   > terminan, el sistema calcula las métricas solo."
-
-3. **Abrir el dashboard** → http://localhost:5001 → entrar a una clase (ej. **Mat Pilates**,
-   45 min):
-   > "Y acá está el resultado real: claridad 72/100, satisfacción 60/100 con el desglose de
-   > emociones (mayormente CALM), y 73% del tiempo hablando vs. demostrando. **Todo esto
-   > salió de un video de 45 minutos, automáticamente.** Y procesamos 4 clases distintas:
-   > los números son consistentes entre ellas."
+> Mientras procesa el clip (1-3 min), seguir mostrando las clases ya analizadas — sin silencios.
 
 ### Paso 4 — Honestidad técnica (30 s) — suma puntos
-> "Al probarlo en real, la cuenta de AWS tenía una restricción de organización (un SCP) que
-> bloquea **una** función de Rekognition (la de seguir personas); por eso asistencia y
-> permanencia salen en 0. No es un bug del código: es una política de la cuenta. Y gracias a
-> esa prueba el pipeline quedó más robusto: si un servicio falla, **no se cae todo**, igual
-> calcula el resto de las métricas."
+> "Al probarlo en real descubrimos que **AWS descontinuó el API que seguía personas**
+> (Rekognition People Pathing, retirado el 31-oct-2025). En vez de quedarnos sin
+> asistencia/permanencia, las **derivamos de la detección de caras** (cuántas caras hay al
+> inicio/mitad/final del video). Además hicimos la ingesta **escalable** (guardamos un
+> resumen, no el JSON gigante). O sea: el sistema **se adapta** cuando un servicio cambia."
 
 ### Paso 5 — Cierre (15 s)
-> "Resumen: construimos el motor que convierte videos en analítica accionable, probado de
-> punta a punta contra AWS real, con código modular y 57 tests automáticos. Es la base
-> sobre la que se apoya todo el valor del producto."
+> "Resumen: construimos el motor que convierte videos en analítica accionable — con **subida
+> directa a S3**, **detección automática de idioma**, probado de punta a punta contra AWS
+> real, código modular y **66 tests** automáticos. Es la base de todo el valor del producto."
 
 ---
 
@@ -88,10 +84,10 @@ en Python). Cada uno hace **una** cosa. Estos son los que tocamos:
 
 | Servicio AWS | Qué es / qué hace | Para qué lo usamos |
 |--------------|-------------------|--------------------|
-| **S3** (Simple Storage Service) | Disco en la nube: guarda archivos ("objetos") dentro de "buckets". Cada objeto se identifica por `bucket` + `key` (la ruta). | Ahí ya están los videos. Solo los **leemos** (no subimos nada desde la app). |
-| **Rekognition** | Visión por computadora sobre imágenes y video. | Dos análisis distintos (abajo). |
-| → Rekognition **Person Tracking** | Detecta y **sigue personas** a lo largo del video (cuándo aparece/desaparece cada una). | Asistencia y permanencia. |
-| → Rekognition **Face Detection** | Detecta rostros y sus **emociones** (HAPPY, SAD, CALM, etc.) frame a frame. | Satisfacción del alumno. |
+| **S3** (Simple Storage Service) | Disco en la nube: guarda archivos ("objetos") dentro de "buckets". Cada objeto se identifica por `bucket` + `key` (la ruta). | Guardamos y leemos los videos. La app los **sube directo del navegador a S3** (URL pre-firmada). |
+| **Rekognition** | Visión por computadora sobre imágenes y video. | Detección de caras + emociones. |
+| → Rekognition **Face Detection** | Detecta rostros y sus **emociones** (HAPPY, SAD, CALM, etc.) y permite contar caras por frame. | Satisfacción + asistencia/permanencia (conteo de caras). |
+| → Rekognition **Person Tracking** | Seguía personas individualmente. **AWS lo descontinuó (oct-2025).** | *Ya no se usa → se reemplazó por conteo de caras (Face Detection).* |
 | **Transcribe** | Pasa **audio a texto** (speech-to-text) con marcas de tiempo por palabra. | Claridad de instrucciones y ratio habla/demostración. |
 | **Comprehend** | NLP: analiza el **sentimiento** de un texto (positivo/negativo/neutro). | Complementa la satisfacción (lo que se dice). |
 | **SNS** (Simple Notification Service) | Sistema de notificaciones: AWS puede "avisar" a una URL cuando algo pasa. | (Opcional) avisar cuando un job termina, vía webhook. |
@@ -115,7 +111,7 @@ Comprehend, en cambio, es **síncrono** (responde al toque), porque es solo text
 ## 3. Cómo funciona el pipeline (el flujo completo)
 
 ```
-   Video ya en S3
+   Video en S3  (subido directo desde la app, o ya presente por cámaras)
         │
         ▼
   enqueue_analysis(clase)         ← se dispara el análisis de una clase
@@ -123,10 +119,9 @@ Comprehend, en cambio, es **síncrono** (responde al toque), porque es solo text
         ▼
   Pipeline Orchestrator
    ├─ valida que el objeto exista en S3
-   ├─ lanza Rekognition Person Tracking   ┐
-   ├─ lanza Rekognition Face Detection    ├─ jobs asíncronos (guardan un JobId)
-   └─ lanza Transcribe                     ┘
-        │   (cada job queda como "submitted" en la tabla analisis_jobs)
+   ├─ lanza Rekognition Face Detection    ┐ jobs asíncronos
+   └─ lanza Transcribe                     ┘ (guardan un JobId)
+        │   (Person Tracking lo descontinuó AWS; cada job queda "submitted")
         ▼
   Job Poller   (comando `flask aws-poll-jobs`, corre cada X minutos)
    ├─ consulta cada JobId en AWS

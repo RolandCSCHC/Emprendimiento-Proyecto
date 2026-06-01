@@ -127,7 +127,7 @@ Dockerfile
 
 ---
 
-## Fase AWS — análisis en la nube (implementada ✅)
+## Fase AWS — análisis en la nube
 
 El pipeline está **implementado y probado contra AWS real**. Procesa los videos de las
 clases (almacenados en S3) y genera las 5 métricas del dashboard automáticamente.

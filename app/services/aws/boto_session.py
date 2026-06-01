@@ -36,4 +36,11 @@ def get_boto_client(service_name: str) -> Any:
         kwargs["aws_access_key_id"] = access_key
         kwargs["aws_secret_access_key"] = secret_key
 
+    # S3 con SigV4: las URLs pre-firmadas solo firman el host (no el Content-Type),
+    # para que el PUT directo desde el navegador no falle por el header que agrega.
+    if service_name == "s3":
+        from botocore.config import Config
+
+        kwargs["config"] = Config(signature_version="s3v4")
+
     return boto3.client(service_name, **kwargs)

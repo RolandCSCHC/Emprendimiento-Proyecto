@@ -34,8 +34,15 @@ def create_app(config_name: str | None = None) -> Flask:
 
     register_blueprints(flask_app)
     register_cli(flask_app)
+    register_template_filters(flask_app)
 
     return flask_app
+
+
+def register_template_filters(flask_app: Flask) -> None:
+    from app.metric_display import format_metric_value
+
+    flask_app.jinja_env.filters["format_metric"] = format_metric_value
 
 
 def _validate_aws_config(flask_app: Flask) -> None:

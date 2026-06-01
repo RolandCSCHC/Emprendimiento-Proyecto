@@ -69,10 +69,8 @@
     {% for metric in metrics %}
       <article class="metric-card">
         <h3>{{ metric.label }}</h3>
-        {% if metric.metrica and metric.metrica.status == 'completed' and metric.metrica.valor_numerico is not none %}
-          <p class="metric-value">{{ metric.metrica.valor_numerico }}{% if metric.metrica.unidad %} {{ metric.metrica.unidad }}{% endif %}</p>
-        {% elif metric.metrica and metric.metrica.valor_texto %}
-          <p class="metric-value">{{ metric.metrica.valor_texto }}</p>
+        {% if metric.display_value %}
+          <p class="metric-value">{{ metric.display_value }}</p>
         {% else %}
           <span class="badge badge-pending">Pendiente de análisis</span>
         {% endif %}

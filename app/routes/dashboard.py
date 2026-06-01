@@ -123,16 +123,29 @@ def delete_clase_route(clase_id: str):
 def session_detail(clase_id: str):
     clase = _get_clase_or_404(clase_id)
 
+    from app.metric_display import format_metric_value
+
     metric_labels = current_app.config["METRIC_LABELS"]
     metricas_by_key = {m.clave: m for m in clase.metricas}
-    metrics = [
-        {
-            "key": key,
-            "label": metric_labels.get(key, key),
-            "metrica": metricas_by_key.get(key),
-        }
-        for key in current_app.config["METRIC_KEYS"]
-    ]
+    metrics = []
+    for key in current_app.config["METRIC_KEYS"]:
+        metrica = metricas_by_key.get(key)
+        display_value = None
+        if metrica and metrica.status == "completed":
+            if metrica.valor_numerico is not None:
+                display_value = format_metric_value(
+                    key, metrica.valor_numerico, metrica.unidad
+                )
+            elif metrica.valor_texto:
+                display_value = metrica.valor_texto
+        metrics.append(
+            {
+                "key": key,
+                "label": metric_labels.get(key, key),
+                "metrica": metrica,
+                "display_value": display_value,
+            }
+        )
 
     return render_template(
         "session_detail.html",

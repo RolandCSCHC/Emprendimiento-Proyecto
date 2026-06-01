@@ -25,6 +25,7 @@ services:
       DATABASE_URL: postgresql://gymsight:gymsight@db:5432/gymsight
       FLASK_ENV: production
     volumes:
+      - ./app:/app/app
       - uploads_data:/app/uploads
     depends_on:
       db:

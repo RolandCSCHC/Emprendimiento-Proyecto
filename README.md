@@ -174,14 +174,19 @@ Con `AWS_ENABLED=false` la app funciona normal sin tocar AWS (los archivos se gu
 |---------|--------------|
 | Asistencia | Rekognition FaceDetection (pico de caras por tercio del video)* |
 | Permanencia | Rekognition FaceDetection (caras al final vs. inicio)* |
-| Claridad de Instrucciones | Transcribe (palabras/min, frases, pausas) |
-| Tiempo Hablando vs. Demostrando | Transcribe (segmentos con voz vs. silencio) |
+| Claridad de Instrucciones | Transcribe (palabras/min, frases, pausas)** |
+| Tiempo Hablando vs. Demostrando | Transcribe (segmentos con voz vs. silencio)** |
 | Satisfacción del Alumno | Rekognition FaceDetection (emociones) + Comprehend (sentimiento) |
 
 > *AWS **descontinuó Rekognition People Pathing** (tracking de personas) el 31-oct-2025, que
 > era la fuente original de asistencia/permanencia. Se reemplazó por conteo de caras de
 > FaceDetection. Para producción, lo más preciso sería Label Detection ("Person") o
 > YOLOv9 + ByteTrack en SageMaker (ver `DEPLOY.md`).
+>
+> **Transcribe **detecta el idioma automáticamente** (`TRANSCRIBE_LANGUAGE_CODE=auto`)
+> entre los candidatos de `TRANSCRIBE_LANGUAGE_OPTIONS` (es-ES/en-US), así una clase en
+> español se transcribe en español y una en inglés en inglés. Si el video no tiene voz
+> (p. ej. solo música), estas dos métricas salen 0 (correcto).
 
 ### Tablas de BD que usarás
 
@@ -202,7 +207,8 @@ Con `AWS_ENABLED=false` la app funciona normal sin tocar AWS (los archivos se gu
 | `AWS_REGION` | Región, ej. `us-west-2` |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Credenciales IAM (en producción: **dejar vacías y usar rol IAM**) |
 | `S3_BUCKET` | Bucket con los videos |
-| `TRANSCRIBE_LANGUAGE_CODE` | Idioma del audio (ej. `en-US`) |
+| `TRANSCRIBE_LANGUAGE_CODE` | `auto` detecta el idioma solo (default), o fija uno (`es-ES`, `en-US`, ...) |
+| `TRANSCRIBE_LANGUAGE_OPTIONS` | Idiomas candidatos para la auto-detección (ej. `es-ES,en-US`) |
 | `SNS_TOPIC_ARN` / `REKOGNITION_SNS_ROLE_ARN` | Opcionales, solo si usas webhook SNS |
 
 ### Comandos del pipeline

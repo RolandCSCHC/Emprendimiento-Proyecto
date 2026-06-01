@@ -39,7 +39,8 @@ Guía de qué cambia al llevar Gymsight de local a un entorno desplegado.
 | `DATABASE_URL` | Postgres de Docker (`db:5432`) | **RDS** u otra base gestionada |
 | `SECRET_KEY` | valor dev | **secreto real, largo y único** |
 | `FLASK_ENV` | `development` | `production` (ya configurado en `docker-compose`) |
-| `TRANSCRIBE_LANGUAGE_CODE` | `en-US` | idioma real del audio |
+| `TRANSCRIBE_LANGUAGE_CODE` | `auto` | `auto` detecta el idioma; o fija uno (es-ES/en-US) |
+| `TRANSCRIBE_LANGUAGE_OPTIONS` | `es-ES,en-US` | candidatos para la auto-detección |
 | `SNS_TOPIC_ARN` / `REKOGNITION_SNS_ROLE_ARN` | — | solo si usas webhook SNS |
 | `MAX_UPLOAD_MB` | 800 | según tamaño de videos |
 

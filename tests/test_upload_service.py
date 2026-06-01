@@ -1,23 +1,13 @@
-"""Tests de la subida de clases (a S3 con AWS activo, local sin AWS)."""
+"""Tests del flujo de subida directa cliente → S3 (presigned)."""
 
 from __future__ import annotations
 
-import io
-
 import pytest
-from werkzeug.datastructures import FileStorage
 
 from app.extensions import db
 from app.models import AnalisisJob, Gimnasio, Metrica, Profesor, TipoClase
 from app.services import upload_service
-
-
-def _fake_video():
-    return FileStorage(
-        stream=io.BytesIO(b"contenido de video falso"),
-        filename="clase.mp4",
-        content_type="video/mp4",
-    )
+from app.services.class_service import get_clase
 
 
 def _prereqs():
@@ -32,54 +22,67 @@ def _prereqs():
 
 
 @pytest.fixture
-def no_enqueue(monkeypatch):
-    """Evita que el pipeline real corra al crear la clase."""
+def aws_on(app, monkeypatch):
+    app.config["AWS_ENABLED"] = True
+    app.config["S3_BUCKET"] = "test-bucket"
+    monkeypatch.setattr(
+        upload_service.s3_client, "generate_presigned_upload_url",
+        lambda bucket, key, expires_in=None: f"https://s3.test/{bucket}/{key}?sig=x",
+    )
     monkeypatch.setattr(upload_service, "enqueue_analysis", lambda clase_id: None)
 
 
-def test_upload_con_aws_va_a_s3(app, db_session, no_enqueue, monkeypatch):
-    app.config["AWS_ENABLED"] = True
-    app.config["S3_BUCKET"] = "test-bucket"
-    subido = {}
-    monkeypatch.setattr(
-        upload_service.s3_client,
-        "upload_fileobj",
-        lambda stream, bucket, key, content_type=None: subido.update(bucket=bucket, key=key),
-    )
+def test_create_pending_devuelve_presigned_y_no_jobs(app, db_session, aws_on):
     g, p, t = _prereqs()
     db_session.commit()
 
-    clase = upload_service.create_class_session(
-        nombre="Clase S3", fecha="2026-05-04T09:00",
+    result = upload_service.create_pending_class(
+        nombre="Clase", fecha="2026-05-04T09:00",
         gimnasio_id=str(g.id), profesor_id=str(p.id), tipo_clase_id=str(t.id),
-        video=_fake_video(), audio=None,
+        video_filename="clase.mp4",
     )
 
+    assert "video" in result["uploads"]
+    assert result["uploads"]["video"]["presigned_url"].startswith("https://s3.test/")
+    assert result["uploads"]["video"]["s3_key"].endswith("video.mp4")
+
+    clase = get_clase(result["clase_id"])
+    assert clase.status == "awaiting_upload"
     arch = clase.archivos[0]
-    assert arch.s3_bucket == "test-bucket"
-    assert arch.s3_key == f"clases/{clase.id}/video.mp4"
+    assert arch.s3_key == result["uploads"]["video"]["s3_key"]
     assert arch.ruta_local is None
-    assert arch.tamano_bytes == len(b"contenido de video falso")
-    assert subido["key"].startswith("clases/")
-    # El pipeline es el dueño de los jobs: NO se pre-crean jobs pending.
+    # El pipeline es dueño de los jobs: no se pre-crean. Métricas sí (para el dashboard).
     assert AnalisisJob.query.filter_by(clase_id=clase.id).count() == 0
-    # Las 5 métricas sí se pre-crean (para el dashboard).
     assert Metrica.query.filter_by(clase_id=clase.id).count() == 5
 
 
-def test_upload_sin_aws_guarda_local(app, db_session, no_enqueue, tmp_path):
-    app.config["AWS_ENABLED"] = False
-    app.config["UPLOAD_FOLDER"] = tmp_path
+def test_finalize_marca_lista_y_dispara_analisis(app, db_session, aws_on, monkeypatch):
     g, p, t = _prereqs()
     db_session.commit()
-
-    clase = upload_service.create_class_session(
-        nombre="Clase local", fecha="2026-05-04T09:00",
+    result = upload_service.create_pending_class(
+        nombre="Clase", fecha="2026-05-04T09:00",
         gimnasio_id=str(g.id), profesor_id=str(p.id), tipo_clase_id=str(t.id),
-        video=_fake_video(), audio=None,
+        video_filename="clase.mp4",
     )
+    llamadas = []
+    monkeypatch.setattr(upload_service, "enqueue_analysis", lambda cid: llamadas.append(cid))
+    monkeypatch.setattr(upload_service.s3_client, "check_object_exists", lambda b, k: True)
 
-    arch = clase.archivos[0]
-    assert arch.ruta_local is not None
-    assert arch.s3_key is None
-    assert arch.s3_bucket is None
+    clase = upload_service.finalize_class_upload(result["clase_id"])
+
+    assert clase.status == "pendiente_analisis"
+    assert llamadas == [result["clase_id"]]
+
+
+def test_finalize_falla_si_falta_objeto_en_s3(app, db_session, aws_on, monkeypatch):
+    g, p, t = _prereqs()
+    db_session.commit()
+    result = upload_service.create_pending_class(
+        nombre="Clase", fecha="2026-05-04T09:00",
+        gimnasio_id=str(g.id), profesor_id=str(p.id), tipo_clase_id=str(t.id),
+        video_filename="clase.mp4",
+    )
+    monkeypatch.setattr(upload_service.s3_client, "check_object_exists", lambda b, k: False)
+
+    with pytest.raises(upload_service.UploadValidationError):
+        upload_service.finalize_class_upload(result["clase_id"])

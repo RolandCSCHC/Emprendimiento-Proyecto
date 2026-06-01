@@ -38,6 +38,7 @@ def list_clases() -> list[Clase]:
             db.joinedload(Clase.tipo_clase),
             db.joinedload(Clase.archivos),
         )
+        .filter(Clase.status != "awaiting_upload")
         .order_by(Clase.fecha_inicio.desc())
         .all()
     )

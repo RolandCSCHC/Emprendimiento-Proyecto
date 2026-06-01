@@ -50,6 +50,9 @@ class Config:
     TRANSCRIBE_LANGUAGE_OPTIONS = os.environ.get(
         "TRANSCRIBE_LANGUAGE_OPTIONS", "es-ES,en-US"
     ).split(",")
+    # Subida directa cliente → S3 (presigned URLs)
+    ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "http://localhost:5001").split(",")
+    PRESIGNED_URL_EXPIRES = int(os.environ.get("PRESIGNED_URL_EXPIRES", 900))
 
 
 class DevelopmentConfig(Config):
@@ -64,6 +67,8 @@ class TestingConfig(Config):
     TESTING = True
     DEBUG = True
     AWS_ENABLED = False
+    # Permite usar url_for() en tests fuera de un request (lo usa create_pending_class).
+    SERVER_NAME = "localhost"
     SQLALCHEMY_DATABASE_URI = os.environ.get(
         "TEST_DATABASE_URL", "sqlite+pysqlite:///:memory:"
     )

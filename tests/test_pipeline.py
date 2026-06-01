@@ -31,7 +31,7 @@ def mock_aws(monkeypatch):
     )
     monkeypatch.setattr(
         pipeline.transcribe_client, "start_transcription",
-        lambda uri, lang="es-ES", out=None: "tr-job",
+        lambda uri, lang=None, out=None, opts=None: "tr-job",
     )
 
 

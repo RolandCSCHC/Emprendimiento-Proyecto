@@ -43,14 +43,17 @@ def start_analysis_for_clase(clase_id: str) -> None:
 
     clase.status = CLASE_ANALIZANDO
 
-    language_code = config.get("TRANSCRIBE_LANGUAGE_CODE", "es-ES")
+    language_code = config.get("TRANSCRIBE_LANGUAGE_CODE", "auto")
+    language_options = config.get("TRANSCRIBE_LANGUAGE_OPTIONS")
     sns_topic_arn = config.get("SNS_TOPIC_ARN")
     output_bucket = config.get("TRANSCRIBE_OUTPUT_BUCKET")
 
     for archivo in clase.archivos:
         if not archivo.activo:
             continue
-        _process_archivo(clase, archivo, language_code, sns_topic_arn, output_bucket)
+        _process_archivo(
+            clase, archivo, language_code, language_options, sns_topic_arn, output_bucket
+        )
 
     db.session.commit()
 
@@ -59,6 +62,7 @@ def _process_archivo(
     clase: Clase,
     archivo: ArchivoMedia,
     language_code: str,
+    language_options: Optional[list[str]],
     sns_topic_arn: Optional[str],
     output_bucket: Optional[str],
 ) -> None:
@@ -104,7 +108,9 @@ def _process_archivo(
         s3_uri = f"s3://{archivo.s3_bucket}/{archivo.s3_key}"
         _launch(
             clase, archivo, SERVICE_TRANSCRIBE,
-            lambda: transcribe_client.start_transcription(s3_uri, language_code, output_bucket),
+            lambda: transcribe_client.start_transcription(
+                s3_uri, language_code, output_bucket, language_options
+            ),
             {**base, "service": SERVICE_TRANSCRIBE, "language_code": language_code},
         )
 

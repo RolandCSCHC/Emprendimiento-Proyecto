@@ -26,6 +26,18 @@ def test_start_transcription_forwards_language(fake_client, language_code):
     assert kwargs["LanguageCode"] == language_code
     assert kwargs["Media"] == {"MediaFileUri": "s3://bucket/video.mp4"}
     assert kwargs["MediaFormat"] == "mp4"
+    assert "IdentifyLanguage" not in kwargs
+
+
+@pytest.mark.parametrize("lang", [None, "auto"])
+def test_start_transcription_auto_detecta_idioma(fake_client, lang):
+    transcribe_client.start_transcription(
+        "s3://bucket/video.mp4", language_code=lang, language_options=["es-ES", "en-US"]
+    )
+    kwargs = fake_client.start_transcription_job.call_args.kwargs
+    assert kwargs["IdentifyLanguage"] is True
+    assert kwargs["LanguageOptions"] == ["es-ES", "en-US"]
+    assert "LanguageCode" not in kwargs
 
 
 def test_get_transcription_in_progress(fake_client):
@@ -41,6 +53,7 @@ def test_get_transcription_completed(fake_client, monkeypatch):
     fake_client.get_transcription_job.return_value = {
         "TranscriptionJob": {
             "TranscriptionJobStatus": "COMPLETED",
+            "LanguageCode": "es-ES",
             "Transcript": {"TranscriptFileUri": "https://example/out.json"},
         }
     }
@@ -53,6 +66,7 @@ def test_get_transcription_completed(fake_client, monkeypatch):
     assert result["status"] == "SUCCEEDED"
     assert result["transcript"] == "hola clase"
     assert result["raw"] == payload
+    assert result["language_code"] == "es-ES"  # idioma detectado
 
 
 def test_get_transcription_failed(fake_client):

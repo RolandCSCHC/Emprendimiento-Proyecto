@@ -126,6 +126,7 @@ docker compose exec web flask aws-poll-jobs   # volver a consultar jobs
 |---------|---------------------------|
 | `AccessDenied` al analizar | Credenciales mal pegadas en `.env`, o `AWS_ENABLED` no es `true`. |
 | `AccessDenied` solo en *PersonTracking* | Normal: AWS descontinuó ese API; asistencia/permanencia salen de FaceDetection. |
+| Error **403 / CORS** al subir el video | Entra por **`http://localhost:5001`** (no `127.0.0.1`). La subida es directa a S3 y el bucket tiene CORS solo para ese origen. |
 | Puerto 5433 ocupado | Cambia el puerto del `db` en `docker-compose.yml`. |
 | La clase queda en "analizando" | Los jobs aún corren; vuelve a correr `flask aws-poll-jobs` en unos minutos. |
 | El dashboard muestra métricas vacías | El análisis aún no termina, o no corriste `aws-analyze`. |

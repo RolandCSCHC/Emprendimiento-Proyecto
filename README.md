@@ -146,13 +146,18 @@ Con `AWS_ENABLED=false` la app funciona normal sin tocar AWS (los archivos se gu
 
 ```text
 1. Usuario sube clase  (o el video ya está en S3 por cámaras/grabaciones)
-2. Con AWS activo, el archivo se sube a S3 (no a disco) y se setea s3_bucket/s3_key
-3. enqueue_analysis(clase_id)  →  pipeline pone la clase en "analizando"
-4. pipeline lanza jobs asíncronos: Rekognition FaceDetection + Transcribe
-5. flask aws-poll-jobs  (o webhook SNS) consulta el estado en AWS
-6. al terminar, metrics_extractor (+ Comprehend) calcula las 5 métricas
-7. clase.status = completada  →  el dashboard muestra los valores reales
+2. El servidor crea la clase (estado "awaiting_upload") y devuelve URLs PRE-FIRMADAS
+3. El navegador sube el video DIRECTO a S3 (no pasa por el servidor)
+4. Al terminar, /upload/<id>/complete verifica el objeto en S3 y dispara el análisis
+5. pipeline pone la clase en "analizando" y lanza jobs: Rekognition FaceDetection + Transcribe
+6. flask aws-poll-jobs  (o webhook SNS) consulta el estado en AWS
+7. al terminar, metrics_extractor (+ Comprehend) calcula las 5 métricas
+8. clase.status = completada  →  el dashboard muestra los valores reales
 ```
+
+> La subida es **directa cliente → S3** (presigned `PUT`), así el archivo no pasa por
+> Flask. Requiere **CORS** en el bucket permitiendo `PUT` desde el origen de la app
+> (ver `ALLOWED_ORIGINS` y `docs/DEPLOY.md`).
 
 ### Módulos del pipeline
 
@@ -203,6 +208,8 @@ Con `AWS_ENABLED=false` la app funciona normal sin tocar AWS (los archivos se gu
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Credenciales IAM (en producción: **dejar vacías y usar rol IAM**) |
 | `S3_BUCKET` | Bucket con los videos |
 | `TRANSCRIBE_LANGUAGE_CODE` | Idioma del audio (ej. `en-US`) |
+| `ALLOWED_ORIGINS` | Orígenes permitidos para la subida directa (ej. `http://localhost:5001`) |
+| `PRESIGNED_URL_EXPIRES` | Expiración (s) de las URLs pre-firmadas (default 900) |
 | `SNS_TOPIC_ARN` / `REKOGNITION_SNS_ROLE_ARN` | Opcionales, solo si usas webhook SNS |
 
 ### Comandos del pipeline

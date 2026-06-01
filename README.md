@@ -127,12 +127,12 @@ Dockerfile
 
 ---
 
-## Fase AWS — análisis en la nube (implementada ✅)
+## Fase AWS — análisis en la nube (implementada)
 
 El pipeline está **implementado y probado contra AWS real**. Procesa los videos de las
 clases (almacenados en S3) y genera las 5 métricas del dashboard automáticamente.
 
-> 📚 Documentación detallada en `docs/`:
+> Documentación detallada en `docs/`:
 > - **`PRESENTACION-AWS.md`** — cómo funciona + guion de demo.
 > - **`AVANCES-AWS.md`** — bitácora técnica de la implementación.
 > - **`DEPLOY.md`** — qué configurar para producción (rol IAM, env vars, etc.).
@@ -177,21 +177,21 @@ Con `AWS_ENABLED=false` la app funciona normal sin tocar AWS (los archivos se gu
 
 | Métrica | Servicio AWS |
 |---------|--------------|
-| Asistencia | Rekognition FaceDetection (pico de caras por tercio del video)* |
-| Permanencia | Rekognition FaceDetection (caras al final vs. inicio)* |
-| Claridad de Instrucciones | Transcribe (palabras/min, frases, pausas)** |
-| Tiempo Hablando vs. Demostrando | Transcribe (segmentos con voz vs. silencio)** |
+| Asistencia | Rekognition FaceDetection (peak de caras por tercio del video) |
+| Permanencia | Rekognition FaceDetection (caras al final vs. inicio) |
+| Claridad de Instrucciones | Transcribe (palabras/min, frases, pausas) |
+| Tiempo Hablando vs. Demostrando | Transcribe (segmentos con voz vs. silencio) |
 | Satisfacción del Alumno | Rekognition FaceDetection (emociones) + Comprehend (sentimiento) |
 
-> *AWS **descontinuó Rekognition People Pathing** (tracking de personas) el 31-oct-2025, que
-> era la fuente original de asistencia/permanencia. Se reemplazó por conteo de caras de
-> FaceDetection. Para producción, lo más preciso sería Label Detection ("Person") o
-> YOLOv9 + ByteTrack en SageMaker (ver `DEPLOY.md`).
->
-> **Transcribe **detecta el idioma automáticamente** (`TRANSCRIBE_LANGUAGE_CODE=auto`)
-> entre los candidatos de `TRANSCRIBE_LANGUAGE_OPTIONS` (es-ES/en-US), así una clase en
-> español se transcribe en español y una en inglés en inglés. Si el video no tiene voz
-> (p. ej. solo música), estas dos métricas salen 0 (correcto).
+**Nota sobre asistencia y permanencia:** AWS **descontinuó Rekognition People Pathing**
+(tracking de personas) el 31-oct-2025, que era su fuente original. Se reemplazó por conteo
+de caras de FaceDetection. Para producción, lo más preciso sería Label Detection ("Person")
+o YOLOv9 + ByteTrack en SageMaker (ver `DEPLOY.md`).
+
+**Nota sobre claridad y habla/demo:** Transcribe **detecta el idioma automáticamente**
+(`TRANSCRIBE_LANGUAGE_CODE=auto`) entre los candidatos de `TRANSCRIBE_LANGUAGE_OPTIONS`
+(es-ES/en-US). Si el video no tiene voz (p. ej. solo música), estas dos métricas salen 0
+(correcto).
 
 ### Tablas de BD que usarás
 

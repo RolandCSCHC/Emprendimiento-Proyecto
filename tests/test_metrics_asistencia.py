@@ -69,7 +69,7 @@ def _fd(inicio, mitad, final):
 
 def test_asistencia_desde_facedetection():
     result = extract_asistencia(_fd(2, 3, 1))
-    assert result["valor_numerico"] == 3  # pico de caras simultáneas
+    assert result["valor_numerico"] == 3  # peak de caras simultáneas
     assert result["detalle"]["fuente"].startswith("face_detection")
     assert result["detalle"]["inicio"] == 2
 

@@ -128,7 +128,7 @@ def extract_asistencia(raw_data: dict[str, Any]) -> dict[str, Any]:
     """
     Personas detectadas. Fuente primaria: PersonTracking (personas únicas).
     Como AWS descontinuó People Pathing, se usa FaceDetection como respaldo:
-    pico de caras simultáneas (inicio/mitad/final).
+    peak de caras simultáneas (inicio/mitad/final).
     """
     persons = _persons_summary(raw_data)
     if persons:
@@ -150,16 +150,16 @@ def extract_asistencia(raw_data: dict[str, Any]) -> dict[str, Any]:
 
     presencia = _presencia_facedetection(raw_data)
     if presencia:
-        pico = max(presencia.values())
+        peak = max(presencia.values())
         return {
-            "valor_numerico": pico,
+            "valor_numerico": peak,
             "unidad": "personas",
             "confianza": None,
             "detalle": {
                 "inicio": presencia.get("inicio", 0),
                 "mitad": presencia.get("mitad", 0),
                 "final": presencia.get("final", 0),
-                "fuente": "face_detection (pico de caras visibles)",
+                "fuente": "face_detection (peak de caras visibles)",
             },
         }
 

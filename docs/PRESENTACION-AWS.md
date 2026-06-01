@@ -258,7 +258,7 @@ desde el video** por Transcribe + Rekognition Face Detection + Comprehend:
 | Reformer | 57 min | 12 | 83.3 % | 78 | 54 | 65.3 % |
 | Hot Pilates | 61 min | 28 | 100 % | 74 | 62 | 69.6 % |
 
-*(Asistencia = pico de caras simultáneas; permanencia = % de caras al final vs. inicio.
+*(Asistencia = peak de caras simultáneas; permanencia = % de caras al final vs. inicio.
 Cuenta caras visibles, así que es un piso — para producción, Label Detection / YOLOv9 sería
 más preciso.)*
 

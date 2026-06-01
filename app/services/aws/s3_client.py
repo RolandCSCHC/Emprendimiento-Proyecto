@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from botocore.exceptions import ClientError
+from flask import current_app
 
 from app.services.aws.boto_session import get_boto_client
 
@@ -55,6 +56,24 @@ def check_object_exists(bucket: str, key: str) -> bool:
 def get_s3_uri(bucket: str, key: str) -> str:
     """Devuelve la URI ``s3://bucket/key`` usada por Rekognition y Transcribe."""
     return f"s3://{bucket}/{key}"
+
+
+def generate_presigned_upload_url(
+    bucket: str, key: str, expires_in: Optional[int] = None
+) -> str:
+    """
+    Genera una URL pre-firmada para **subir (PUT)** un objeto directo a S3 desde
+    el navegador (el archivo no pasa por el servidor).
+    """
+    if expires_in is None:
+        expires_in = current_app.config.get("PRESIGNED_URL_EXPIRES", 900)
+    client = get_boto_client("s3")
+    return client.generate_presigned_url(
+        "put_object",
+        Params={"Bucket": bucket, "Key": key},
+        ExpiresIn=expires_in,
+        HttpMethod="PUT",
+    )
 
 
 def generate_presigned_url(

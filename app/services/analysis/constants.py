@@ -16,6 +16,7 @@ JOB_COMPLETED = "completed"
 JOB_FAILED = "failed"
 
 # Estados de Clase.status
+CLASE_AWAITING_UPLOAD = "awaiting_upload"  # clase creada, esperando subida directa a S3
 CLASE_ANALIZANDO = "analizando"
 CLASE_COMPLETADA = "completada"
 CLASE_COMPLETADA_PARCIAL = "completada_parcial"

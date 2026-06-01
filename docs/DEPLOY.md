@@ -40,6 +40,8 @@ Guía de qué cambia al llevar Gymsight de local a un entorno desplegado.
 | `SECRET_KEY` | valor dev | **secreto real, largo y único** |
 | `FLASK_ENV` | `development` | `production` (ya configurado en `docker-compose`) |
 | `TRANSCRIBE_LANGUAGE_CODE` | `en-US` | idioma real del audio |
+| `ALLOWED_ORIGINS` | `http://localhost:5001` | dominio(s) real(es) para la subida directa |
+| `PRESIGNED_URL_EXPIRES` | `900` | expiración (s) de las presigned URLs |
 | `SNS_TOPIC_ARN` / `REKOGNITION_SNS_ROLE_ARN` | — | solo si usas webhook SNS |
 | `MAX_UPLOAD_MB` | 800 | según tamaño de videos |
 
@@ -74,14 +76,33 @@ Con webhook tienes menor latencia; con polling es más simple. Puedes usar ambos
 
 ---
 
-## 5. Subida de videos
+## 5. Subida de videos (directa cliente → S3, presigned)
 
-- La subida por la app va **server-side a S3** (boto3) cuando `AWS_ENABLED=true`.
-- Detrás de un proxy (**nginx / ALB**) hay que **subir el límite de tamaño del body**
-  (`client_max_body_size` en nginx) y `MAX_UPLOAD_MB`, porque los videos son grandes.
-- Timeout de gunicorn ya está en 120s; videos muy grandes pueden requerir más.
-- **Mejora futura (escalabilidad):** subida directa del navegador a S3 con **presigned URL**
-  (el archivo no pasa por el servidor). Hoy es server-side, suficiente para empezar.
+La subida va **directa del navegador a S3** con URLs pre-firmadas (el archivo **no pasa
+por el servidor**, así escala a videos grandes). Flujo: `POST /upload/create-pending`
+(crea la clase y devuelve presigned URLs) → el navegador hace `PUT` directo a S3 →
+`POST /upload/<id>/complete` (verifica en S3 y dispara el análisis).
+
+**Requisitos de configuración:**
+
+- **CORS en el bucket S3**: hay que permitir `PUT` (y `GET`) desde el origen de la app.
+  Ejemplo de regla CORS:
+  ```json
+  [{
+    "AllowedHeaders": ["*"],
+    "AllowedMethods": ["PUT", "GET"],
+    "AllowedOrigins": ["https://tu-dominio"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3000
+  }]
+  ```
+- **`ALLOWED_ORIGINS`** (env): el/los origen(es) permitidos para iniciar la subida
+  (debe coincidir con el dominio real, ej. `https://tu-dominio`).
+- **SigV4**: el cliente S3 firma con SigV4 (ya configurado) para que el `PUT` del navegador
+  no falle por el `Content-Type`.
+- `PRESIGNED_URL_EXPIRES` (env): expiración de las URLs (default 900 s).
+- El proxy (nginx/ALB) **ya no** necesita subir `client_max_body_size` para los videos
+  (no pasan por el server); solo aplica a otros formularios.
 
 ---
 
@@ -103,5 +124,5 @@ Con webhook tienes menor latencia; con polling es más simple. Puedes usar ambos
 - [ ] `S3_BUCKET`, `AWS_REGION`, `TRANSCRIBE_LANGUAGE_CODE` reales.
 - [ ] Entrypoint sin seed de demo (usar `flask db upgrade`).
 - [ ] Polling programado (cron/EventBridge) **o** webhook SNS configurado.
-- [ ] Límite de body del proxy + `MAX_UPLOAD_MB` acordes al tamaño de videos.
+- [ ] **CORS del bucket** permitiendo `PUT`/`GET` desde el dominio real + `ALLOWED_ORIGINS` acorde.
 - [ ] HTTPS/TLS configurado.

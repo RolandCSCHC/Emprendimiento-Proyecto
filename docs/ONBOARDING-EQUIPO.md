@@ -30,7 +30,7 @@ demo y ver los resultados en el dashboard.
 ```bash
 git clone https://github.com/RolandCSCHC/Emprendimiento-Proyecto.git
 cd Emprendimiento-Proyecto
-git checkout aws-analisis      # rama con el pipeline (hasta que se mergee a main)
+# (todo está en main)
 ```
 
 ---
@@ -49,9 +49,11 @@ AWS_REGION=us-west-2
 AWS_ACCESS_KEY_ID=<tu access key>
 AWS_SECRET_ACCESS_KEY=<tu secret>
 S3_BUCKET=rekognition-gym-videos
-TRANSCRIBE_LANGUAGE_CODE=en-US
+TRANSCRIBE_LANGUAGE_CODE=auto
 SECRET_KEY=cualquier-cosa-local
 ```
+
+> `TRANSCRIBE_LANGUAGE_CODE=auto` detecta el idioma solo (es/en). El resto del bloque es fijo.
 
 > ⚠️ Nunca subas tu `.env` a git (ya está en `.gitignore`). Tus credenciales son personales.
 
@@ -70,6 +72,27 @@ Cuando veas el log de `gunicorn` corriendo, abre: **http://localhost:5001**
 
 > Si el puerto `5433` (Postgres) está ocupado en tu equipo, edita `docker-compose.yml` y
 > cambia `5433:5432` por otro puerto, ej. `5434:5432`.
+
+---
+
+## ⚡ Atajo para demo: cargar datos YA analizados (sin gastar en AWS)
+
+Si solo quieres **mostrar el dashboard con métricas reales** (sin esperar ni pagar análisis),
+restaura el dump incluido en el repo (`gymsight_demo.sql`) — trae **6 clases ya analizadas**:
+
+```bash
+docker compose up -d db                                                    # solo la base de datos
+sleep 5
+docker compose exec -T db psql -U gymsight -d gymsight < gymsight_demo.sql # restaurar el dump
+docker compose up -d web                                                   # levantar la app
+# → http://localhost:5001 : 6 clases con sus 5 métricas, al instante
+```
+
+No llama a AWS ni cuesta nada. Para el "wow" en vivo, igual puedes **subir un clip corto**
+(1-3 min de proceso) — ver el paso siguiente.
+
+> Necesitas las credenciales del `.env` (paso 3) **solo** si vas a subir/analizar videos
+> nuevos. Para ver la demo restaurada, ni eso hace falta.
 
 ---
 

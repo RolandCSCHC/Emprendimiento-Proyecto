@@ -31,7 +31,7 @@
           <strong>Sesiones:</strong> {{ programa.num_sesiones }}
         </p>
         <div class="card-actions">
-          <a class="btn btn-secondary" href="{{ url_for('dashboard.programa_detail', programa_id=programa.id) }}">
+          <a class="btn btn-secondary btn-sm" href="{{ url_for('dashboard.programa_detail', programa_id=programa.id) }}">
             Ver historial
           </a>
           <a class="btn btn-secondary btn-sm" href="{{ url_for('uploads.upload', programa_id=programa.id) }}">

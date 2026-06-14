@@ -226,9 +226,17 @@ a:hover {
 
 .card-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 0.5rem;
   align-items: center;
+}
+
+.card-actions .btn {
+  white-space: nowrap;
+}
+
+.card-actions form {
+  margin: 0;
 }
 
 .form-actions {
@@ -320,7 +328,7 @@ a:hover {
 
 .session-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(480px, 1fr));
   gap: 1.25rem;
 }
 
@@ -475,10 +483,63 @@ a:hover {
   color: var(--text-muted);
 }
 
+.charts-section h2 {
+  margin-bottom: 1rem;
+}
+
+.charts-hint {
+  margin-bottom: 1rem;
+  font-size: 0.95rem;
+}
+
+.charts-empty {
+  padding: 1rem 0;
+}
+
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.chart-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+}
+
+.chart-card h3 {
+  font-size: 0.95rem;
+  margin-bottom: 0.75rem;
+  color: var(--text);
+}
+
+.chart-container {
+  position: relative;
+  height: 220px;
+}
+
+.chart-no-data {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 220px;
+  margin: 0;
+}
+
 @media (max-width: 600px) {
   .header-inner {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .session-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .card-actions {
+    flex-wrap: wrap;
   }
 
   .info-list {

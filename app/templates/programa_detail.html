@@ -36,6 +36,35 @@
   </dl>
 </section>
 
+<section class="charts-section session-info">
+  <h2>Evolución del semestre</h2>
+  {% if chart_point_count == 0 %}
+    <div class="empty-state charts-empty">
+      <p class="text-muted">Aún no hay sesiones analizadas con métricas para graficar.</p>
+      <a class="btn btn-primary" href="{{ url_for('uploads.upload', programa_id=programa.id) }}">Subir sesión</a>
+    </div>
+  {% else %}
+    {% if chart_point_count == 1 %}
+      <p class="charts-hint text-muted">Sube más sesiones para ver tendencias a lo largo del semestre.</p>
+    {% endif %}
+    <div
+      class="charts-grid"
+      id="programa-charts"
+      data-chart-series='{{ chart_series | tojson }}'
+      data-metric-labels='{{ metric_labels | tojson }}'
+    >
+      {% for key in metric_keys %}
+        <article class="chart-card">
+          <h3>{{ metric_labels[key] }}</h3>
+          <div class="chart-container">
+            <canvas data-metric-key="{{ key }}"></canvas>
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+  {% endif %}
+</section>
+
 <section class="session-info">
   <h2>Historial de sesiones</h2>
   {% set _labels = {"pendiente_analisis": "Pendiente", "analizando": "Analizando", "completada": "Completada", "completada_parcial": "Completada parcial", "error": "Error"} %}
@@ -73,4 +102,9 @@
     </div>
   {% endif %}
 </section>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='js/programa_charts.js') }}" defer></script>
 {% endblock %}

@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}Gymsight — {{ programa.nombre }}{% endblock %}
+
+{% block content %}
+<section class="page-header">
+  <a href="{{ url_for('dashboard.dashboard') }}" class="back-link">&larr; Volver al dashboard</a>
+  <div class="page-header-row">
+    <div>
+      <h1>{{ programa.nombre }}</h1>
+      <p>{{ programa.num_sesiones }} sesión(es) registrada(s)</p>
+    </div>
+    <div class="page-actions">
+      <a class="btn btn-primary" href="{{ url_for('uploads.upload', programa_id=programa.id) }}">Subir sesión</a>
+      <form method="post" action="{{ url_for('dashboard.delete_programa_route', programa_id=programa.id) }}"
+            onsubmit="return confirm('¿Eliminar esta clase y todas sus sesiones? Esta acción no se puede deshacer.');">
+        <button type="submit" class="btn btn-danger">Eliminar clase</button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<section class="session-info">
+  <h2>Información de la clase</h2>
+  <dl class="info-list">
+    <dt>Gimnasio</dt>
+    <dd>{{ programa.gimnasio.nombre }}</dd>
+    <dt>Profesor</dt>
+    <dd>{{ programa.profesor.nombre_completo }}</dd>
+    <dt>Tipo de clase</dt>
+    <dd>{{ programa.tipo_clase.nombre }}</dd>
+    <dt>Sala</dt>
+    <dd>{{ programa.sala or '—' }}</dd>
+    <dt>Nivel</dt>
+    <dd>{{ programa.nivel or '—' }}</dd>
+  </dl>
+</section>
+
+<section class="session-info">
+  <h2>Historial de sesiones</h2>
+  {% set _labels = {"pendiente_analisis": "Pendiente", "analizando": "Analizando", "completada": "Completada", "completada_parcial": "Completada parcial", "error": "Error"} %}
+  {% set _badges = {"completada": "badge-success", "completada_parcial": "badge-success", "error": "badge-error"} %}
+  {% if sesiones %}
+    <div class="session-grid">
+      {% for sesion in sesiones %}
+        <article class="session-card">
+          <div class="session-card-header">
+            <h3>{{ sesion.fecha_inicio.strftime('%d/%m/%Y %H:%M') }}</h3>
+            <span class="badge {{ _badges.get(sesion.status, 'badge-pending') }}">
+              {{ _labels.get(sesion.status, sesion.status) }}
+            </span>
+          </div>
+          <p class="session-files">
+            {% if sesion.tiene_video %}
+              <span class="file-tag">Video</span>
+            {% endif %}
+            {% if sesion.tiene_audio %}
+              <span class="file-tag">Audio</span>
+            {% endif %}
+          </p>
+          <div class="card-actions">
+            <a class="btn btn-secondary btn-sm" href="{{ url_for('dashboard.session_detail', clase_id=sesion.id) }}">
+              Ver detalle
+            </a>
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="empty-state">
+      <p>No hay sesiones todavía.</p>
+      <a class="btn btn-primary" href="{{ url_for('uploads.upload', programa_id=programa.id) }}">Subir primera sesión</a>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

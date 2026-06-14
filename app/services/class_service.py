@@ -6,7 +6,7 @@ import uuid
 from flask import current_app
 
 from app.extensions import db
-from app.models import AnalisisJob, Clase, Gimnasio, Metrica, Profesor, TipoClase
+from app.models import AnalisisJob, Clase, Gimnasio, Metrica, Profesor, ProgramaClase, TipoClase
 
 
 def list_gimnasios() -> list[Gimnasio]:
@@ -55,6 +55,7 @@ def get_clase(clase_id: str | uuid.UUID) -> Clase | None:
             db.joinedload(Clase.gimnasio),
             db.joinedload(Clase.profesor),
             db.joinedload(Clase.tipo_clase),
+            db.joinedload(Clase.programa),
             db.joinedload(Clase.archivos),
             db.joinedload(Clase.metricas),
             db.joinedload(Clase.analisis_jobs),

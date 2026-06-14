@@ -50,6 +50,7 @@ class Gimnasio(db.Model):
     profesores: Mapped[list["Profesor"]] = relationship(back_populates="gimnasio")
     tipos_clase: Mapped[list["TipoClase"]] = relationship(back_populates="gimnasio")
     clases: Mapped[list["Clase"]] = relationship(back_populates="gimnasio")
+    programas: Mapped[list["ProgramaClase"]] = relationship(back_populates="gimnasio")
 
 
 class Profesor(db.Model):
@@ -80,6 +81,7 @@ class Profesor(db.Model):
 
     gimnasio: Mapped["Gimnasio"] = relationship(back_populates="profesores")
     clases: Mapped[list["Clase"]] = relationship(back_populates="profesor")
+    programas: Mapped[list["ProgramaClase"]] = relationship(back_populates="profesor")
 
     @property
     def nombre_completo(self) -> str:
@@ -108,6 +110,62 @@ class TipoClase(db.Model):
 
     gimnasio: Mapped["Gimnasio"] = relationship(back_populates="tipos_clase")
     clases: Mapped[list["Clase"]] = relationship(back_populates="tipo_clase")
+    programas: Mapped[list["ProgramaClase"]] = relationship(back_populates="tipo_clase")
+
+
+class ProgramaClase(db.Model):
+    """Clase recurrente (p. ej. Pilates martes 10:00). Agrupa sesiones semanales."""
+
+    __tablename__ = "programas_clase"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    gimnasio_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("gimnasios.id"), nullable=False
+    )
+    profesor_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("profesores.id"), nullable=False
+    )
+    tipo_clase_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tipos_clase.id"), nullable=False
+    )
+    nombre: Mapped[str] = mapped_column(String(200), nullable=False)
+    sala: Mapped[Optional[str]] = mapped_column(String(100))
+    nivel: Mapped[Optional[str]] = mapped_column(String(50))
+    notas: Mapped[Optional[str]] = mapped_column(Text)
+    activo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    gimnasio: Mapped["Gimnasio"] = relationship(back_populates="programas")
+    profesor: Mapped["Profesor"] = relationship(back_populates="programas")
+    tipo_clase: Mapped["TipoClase"] = relationship(back_populates="programas")
+    sesiones: Mapped[list["Clase"]] = relationship(
+        back_populates="programa", cascade="all, delete-orphan"
+    )
+
+    @property
+    def sesiones_visibles(self) -> list["Clase"]:
+        return [s for s in self.sesiones if s.status != "awaiting_upload"]
+
+    @property
+    def num_sesiones(self) -> int:
+        return len(self.sesiones_visibles)
+
+    @property
+    def ultima_sesion(self) -> Optional["Clase"]:
+        visibles = self.sesiones_visibles
+        if not visibles:
+            return None
+        return max(visibles, key=lambda s: s.fecha_inicio)
 
 
 class Clase(db.Model):
@@ -124,6 +182,9 @@ class Clase(db.Model):
     )
     tipo_clase_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("tipos_clase.id"), nullable=False
+    )
+    programa_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("programas_clase.id"), nullable=False
     )
     nombre: Mapped[str] = mapped_column(String(200), nullable=False)
     fecha_inicio: Mapped[datetime] = mapped_column(
@@ -150,6 +211,7 @@ class Clase(db.Model):
     gimnasio: Mapped["Gimnasio"] = relationship(back_populates="clases")
     profesor: Mapped["Profesor"] = relationship(back_populates="clases")
     tipo_clase: Mapped["TipoClase"] = relationship(back_populates="clases")
+    programa: Mapped["ProgramaClase"] = relationship(back_populates="sesiones")
     archivos: Mapped[list["ArchivoMedia"]] = relationship(
         back_populates="clase", cascade="all, delete-orphan"
     )

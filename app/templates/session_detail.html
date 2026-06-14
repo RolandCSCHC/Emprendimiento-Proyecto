@@ -4,7 +4,11 @@
 
 {% block content %}
 <section class="page-header">
-  <a href="{{ url_for('dashboard.dashboard') }}" class="back-link">&larr; Volver al dashboard</a>
+  {% if clase.programa %}
+    <a href="{{ url_for('dashboard.programa_detail', programa_id=clase.programa.id) }}" class="back-link">&larr; Volver a {{ clase.programa.nombre }}</a>
+  {% else %}
+    <a href="{{ url_for('dashboard.dashboard') }}" class="back-link">&larr; Volver al dashboard</a>
+  {% endif %}
   <div class="page-header-row">
     <div>
       <h1>{{ clase.nombre }}</h1>
@@ -23,7 +27,7 @@
 </section>
 
 <section class="session-info">
-  <h2>Información de la clase</h2>
+  <h2>Información de la sesión</h2>
   <dl class="info-list">
     <dt>Gimnasio</dt>
     <dd>{{ clase.gimnasio.nombre }}</dd>

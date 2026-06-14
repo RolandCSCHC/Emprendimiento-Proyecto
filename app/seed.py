@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from flask import current_app
 
 from app.extensions import db
-from app.models import ArchivoMedia, Clase, Gimnasio, Profesor, TipoClase
+from app.models import ArchivoMedia, Clase, Gimnasio, Profesor, ProgramaClase, TipoClase
 
 # Videos de demostración YA presentes en el bucket S3 (ver S3_BUCKET en .env).
 # El instructor NO sube videos desde la app: la fuente ya está alimentada
@@ -120,17 +120,28 @@ def _seed_clases_demo(
     profesores: dict[str, Profesor],
     tipos: dict[str, TipoClase],
 ) -> None:
-    """Crea una clase por cada video de demo, enlazada a su objeto S3 existente."""
+    """Crea un programa y una sesión por cada video de demo."""
     bucket = current_app.config.get("S3_BUCKET") or ""
     base_fecha = datetime(2026, 5, 4, 9, 0, tzinfo=timezone.utc)
 
     for i, video in enumerate(DEMO_VIDEOS):
-        clase = Clase(
+        programa = ProgramaClase(
             gimnasio_id=gimnasio.id,
             profesor_id=profesores[video["profesor"]].id,
             tipo_clase_id=tipos[video["tipo_clase"]].id,
             nombre=video["clase"],
-            fecha_inicio=base_fecha + timedelta(days=i),
+        )
+        db.session.add(programa)
+        db.session.flush()
+
+        fecha_inicio = base_fecha + timedelta(days=i)
+        clase = Clase(
+            gimnasio_id=gimnasio.id,
+            profesor_id=programa.profesor_id,
+            tipo_clase_id=programa.tipo_clase_id,
+            programa_id=programa.id,
+            nombre=f"{programa.nombre} — {fecha_inicio.strftime('%d/%m/%Y %H:%M')}",
+            fecha_inicio=fecha_inicio,
             status="pendiente_analisis",
         )
         db.session.add(clase)

@@ -66,7 +66,7 @@ El script:
 4. Aplica la migración `programas_clase` (cada clase antigua pasa a ser 1 programa + 1 sesión; **métricas y jobs se conservan**).
 5. Levanta `web` de nuevo.
 
-Al terminar: **http://localhost:5001/dashboard/**
+Al terminar: **http://localhost:5001**
 
 ### Migraciones en arranque normal
 

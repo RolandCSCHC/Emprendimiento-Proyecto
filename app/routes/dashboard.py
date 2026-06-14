@@ -7,8 +7,10 @@ from flask import Blueprint, abort, current_app, flash, redirect, render_templat
 from app.form_context import class_form_context
 from app.services.class_service import delete_clase, get_clase
 from app.services.programa_service import (
+    chart_point_count,
     delete_programa,
     get_programa,
+    get_programa_metric_series,
     list_programas,
     list_sesiones,
 )
@@ -74,11 +76,16 @@ def dashboard():
 def programa_detail(programa_id: str):
     programa = _get_programa_or_404(programa_id)
     sesiones = list_sesiones(programa_id)
+    chart_series = get_programa_metric_series(programa_id)
     return render_template(
         "programa_detail.html",
         programa=programa,
         sesiones=sesiones,
         status_label=_status_label,
+        chart_series=chart_series,
+        chart_point_count=chart_point_count(chart_series),
+        metric_keys=current_app.config["METRIC_KEYS"],
+        metric_labels=current_app.config["METRIC_LABELS"],
     )
 
 

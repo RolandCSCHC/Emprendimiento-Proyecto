@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import shutil
 import uuid
+from typing import Any
 
 from flask import current_app
 
 from app.extensions import db
 from app.models import Clase, ProgramaClase
+
+SESSION_CHART_STATUSES = ("completada", "completada_parcial")
 
 
 class ProgramaValidationError(Exception):
@@ -97,6 +100,45 @@ def list_sesiones(programa_id: str | uuid.UUID) -> list[Clase]:
         .order_by(Clase.fecha_inicio.desc())
         .all()
     )
+
+
+def get_programa_metric_series(programa_id: str | uuid.UUID) -> dict[str, list[dict[str, Any]]]:
+    """Series temporales por métrica (fecha de sesión → valor numérico)."""
+    parsed_id = _parse_uuid(str(programa_id), "Programa no válido.")
+    metric_keys = current_app.config["METRIC_KEYS"]
+
+    sesiones = (
+        Clase.query.options(db.joinedload(Clase.metricas))
+        .filter(
+            Clase.programa_id == parsed_id,
+            Clase.status.in_(SESSION_CHART_STATUSES),
+        )
+        .order_by(Clase.fecha_inicio.asc())
+        .all()
+    )
+
+    series: dict[str, list[dict[str, Any]]] = {key: [] for key in metric_keys}
+    for sesion in sesiones:
+        metricas_by_key = {m.clave: m for m in sesion.metricas}
+        fecha = sesion.fecha_inicio.strftime("%d/%m/%Y")
+        for key in metric_keys:
+            metrica = metricas_by_key.get(key)
+            if (
+                metrica
+                and metrica.status == "completed"
+                and metrica.valor_numerico is not None
+            ):
+                series[key].append(
+                    {"fecha": fecha, "valor": float(metrica.valor_numerico)}
+                )
+    return series
+
+
+def chart_point_count(chart_series: dict[str, list[dict[str, Any]]]) -> int:
+    """Número máximo de puntos en cualquier serie (para mensajes de UI)."""
+    if not chart_series:
+        return 0
+    return max((len(points) for points in chart_series.values()), default=0)
 
 
 def delete_programa(programa_id: str | uuid.UUID) -> bool:

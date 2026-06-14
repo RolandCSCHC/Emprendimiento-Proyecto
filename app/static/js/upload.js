@@ -40,21 +40,14 @@ document.addEventListener('DOMContentLoaded', () => {
   form.addEventListener('submit', async e => {
     e.preventDefault();
 
-    const nombre = form.nombre.value.trim();
+    const programaField = form.querySelector('input[name="programa_id"]') || form.programa_id;
+    const programaId = programaField.value;
     const fecha = form.fecha.value;
-    const gimId = form.gimnasio_id.value;
-    const profId = form.profesor_id.value;
-    const tipoId = form.tipo_clase_id.value;
-    const sala = form.sala ? form.sala.value.trim() : '';
-    const nivel = form.nivel ? form.nivel.value.trim() : '';
     const videoFile = form.video.files[0] || null;
     const audioFile = form.audio.files[0] || null;
 
-    if (!nombre) return showError('El nombre de la clase es obligatorio.');
+    if (!programaId) return showError('Selecciona una clase.');
     if (!fecha) return showError('La fecha y hora son obligatorias.');
-    if (!gimId) return showError('Selecciona un gimnasio.');
-    if (!profId) return showError('Selecciona un profesor.');
-    if (!tipoId) return showError('Selecciona el tipo de clase.');
     if (!videoFile && !audioFile) return showError('Debes subir al menos un archivo de video o audio.');
     if (videoFile && !allowedVideo.includes(ext(videoFile.name))) {
       return showError(`Formato de video no permitido. Usa: ${allowedVideo.join(', ')}.`);
@@ -66,7 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
     submitBtn.disabled = true;
     progressEl.hidden = false;
     progressEl.value = 0;
-    statusEl.textContent = 'Creando clase…';
+    statusEl.textContent = 'Creando sesión…';
 
     let pendingData;
     try {
@@ -74,25 +67,20 @@ document.addEventListener('DOMContentLoaded', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          nombre,
+          programa_id: programaId,
           fecha,
-          gimnasio_id: gimId,
-          profesor_id: profId,
-          tipo_clase_id: tipoId,
-          sala,
-          nivel,
           video_filename: videoFile ? videoFile.name : null,
           audio_filename: audioFile ? audioFile.name : null,
         }),
       });
       pendingData = await res.json();
       if (res.status !== 201) {
-        showError(pendingData.error || 'Error al crear la clase.');
+        showError(pendingData.error || 'Error al crear la sesión.');
         resetUI();
         return;
       }
     } catch {
-      showError('Error de conexión al crear la clase.');
+      showError('Error de conexión al crear la sesión.');
       resetUI();
       return;
     }

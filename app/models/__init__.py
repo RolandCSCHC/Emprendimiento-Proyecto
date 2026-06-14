@@ -5,6 +5,7 @@ from app.models.tables import (
     Gimnasio,
     Metrica,
     Profesor,
+    ProgramaClase,
     TipoClase,
 )
 
@@ -12,6 +13,7 @@ __all__ = [
     "Gimnasio",
     "Profesor",
     "TipoClase",
+    "ProgramaClase",
     "Clase",
     "ArchivoMedia",
     "AnalisisJob",

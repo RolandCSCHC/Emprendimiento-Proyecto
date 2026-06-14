@@ -1,80 +1,41 @@
 {% extends "base.html" %}
 
-{% block title %}Gymsight — Subir clase{% endblock %}
+{% block title %}Gymsight — Subir sesión{% endblock %}
 
 {% block content %}
 <section class="page-header">
-  <h1>Subir clase</h1>
-  <p>Completa los datos de la clase y sube el video y/o audio para iniciar el análisis.</p>
+  <h1>Subir sesión</h1>
+  {% if programa %}
+    <p>Sube el video y/o audio de una sesión de <strong>{{ programa.nombre }}</strong>.</p>
+  {% else %}
+    <p>Selecciona la clase y sube el video y/o audio de la sesión.</p>
+  {% endif %}
 </section>
 
-<form class="upload-form upload-form-wide" method="post" enctype="multipart/form-data" action="{{ url_for('uploads.upload') }}"
+<form class="upload-form upload-form-wide" method="post" enctype="multipart/form-data"
   data-allowed-video="{{ ','.join(config['ALLOWED_VIDEO_EXTENSIONS']) }}"
   data-allowed-audio="{{ ','.join(config['ALLOWED_AUDIO_EXTENSIONS']) }}"
   data-create-pending-url="/upload/create-pending"
   data-complete-url-template="/upload/CLASE_ID/complete">
   <div class="form-group">
-    <label for="gimnasio_id">Gimnasio</label>
-    <select id="gimnasio_id" name="gimnasio_id" required>
-      {% for gimnasio in gimnasios %}
-        <option value="{{ gimnasio.id }}" {% if gimnasio_id == gimnasio.id|string %}selected{% endif %}>
-          {{ gimnasio.nombre }}
+    <label for="programa_id">Clase</label>
+    <select id="programa_id" name="programa_id" required {% if programa %}disabled{% endif %}>
+      <option value="">Seleccionar...</option>
+      {% for p in programas %}
+        <option value="{{ p.id }}" {% if programa_id == p.id|string %}selected{% endif %}>
+          {{ p.nombre }} ({{ p.tipo_clase.nombre }})
         </option>
       {% endfor %}
     </select>
-  </div>
-
-  <div class="form-row">
-    <div class="form-group">
-      <label for="profesor_id">Profesor</label>
-      <select id="profesor_id" name="profesor_id" required>
-        <option value="">Seleccionar...</option>
-        {% for profesor in profesores %}
-          <option value="{{ profesor.id }}" {% if profesor_id == profesor.id|string %}selected{% endif %}>
-            {{ profesor.nombre_completo }}
-          </option>
-        {% endfor %}
-      </select>
-    </div>
-
-    <div class="form-group">
-      <label for="tipo_clase_id">Tipo de clase</label>
-      <select id="tipo_clase_id" name="tipo_clase_id" required>
-        <option value="">Seleccionar...</option>
-        {% for tipo in tipos_clase %}
-          <option value="{{ tipo.id }}" {% if tipo_clase_id == tipo.id|string %}selected{% endif %}>
-            {{ tipo.nombre }}
-          </option>
-        {% endfor %}
-      </select>
-    </div>
+    {% if programa %}
+      <input type="hidden" name="programa_id" value="{{ programa.id }}">
+    {% endif %}
   </div>
 
   <div class="form-group">
-    <label for="nombre">Nombre de la clase</label>
-    <input type="text" id="nombre" name="nombre" required
-           placeholder="Ej. Yoga grupal mañana"
-           value="{{ nombre or '' }}">
-  </div>
-
-  <div class="form-row">
-    <div class="form-group">
-      <label for="fecha">Fecha y hora de la clase</label>
-      <input type="datetime-local" id="fecha" name="fecha" required
-             value="{{ fecha or '' }}">
-    </div>
-
-    <div class="form-group">
-      <label for="sala">Sala (opcional)</label>
-      <input type="text" id="sala" name="sala" placeholder="Ej. Sala 2"
-             value="{{ sala or '' }}">
-    </div>
-  </div>
-
-  <div class="form-group">
-    <label for="nivel">Nivel (opcional)</label>
-    <input type="text" id="nivel" name="nivel" placeholder="Ej. Principiante"
-           value="{{ nivel or '' }}">
+    <label for="fecha">Fecha y hora de la sesión</label>
+    <input type="datetime-local" id="fecha" name="fecha" required
+           value="{{ fecha or '' }}">
   </div>
 
   <div class="form-group">
@@ -94,7 +55,7 @@
   <progress id="upload-progress" value="0" max="100" hidden></progress>
   <div id="upload-status" role="status"></div>
 
-  <button type="submit" class="btn btn-primary">Crear clase</button>
+  <button type="submit" class="btn btn-primary">Subir sesión</button>
 </form>
 
 <script src="{{ url_for('static', filename='js/upload.js') }}" defer></script>

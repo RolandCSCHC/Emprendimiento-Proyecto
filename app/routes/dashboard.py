@@ -5,7 +5,13 @@ import uuid
 from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, url_for
 
 from app.form_context import class_form_context
-from app.services.class_service import delete_clase, get_clase, list_clases
+from app.services.class_service import delete_clase, get_clase
+from app.services.programa_service import (
+    delete_programa,
+    get_programa,
+    list_programas,
+    list_sesiones,
+)
 from app.services.upload_service import UploadValidationError, update_class_session
 
 dashboard_bp = Blueprint("dashboard", __name__, url_prefix="/dashboard")
@@ -35,6 +41,18 @@ def _get_clase_or_404(clase_id: str):
     return clase
 
 
+def _get_programa_or_404(programa_id: str):
+    try:
+        uuid.UUID(programa_id)
+    except ValueError:
+        abort(404)
+
+    programa = get_programa(programa_id)
+    if programa is None:
+        abort(404)
+    return programa
+
+
 def _fecha_input_value(clase) -> str:
     fecha = clase.fecha_inicio
     if fecha.tzinfo is not None:
@@ -44,8 +62,36 @@ def _fecha_input_value(clase) -> str:
 
 @dashboard_bp.route("/")
 def dashboard():
-    clases = list_clases()
-    return render_template("dashboard.html", clases=clases)
+    programas = list_programas()
+    return render_template(
+        "dashboard.html",
+        programas=programas,
+        status_label=_status_label,
+    )
+
+
+@dashboard_bp.route("/programas/<programa_id>")
+def programa_detail(programa_id: str):
+    programa = _get_programa_or_404(programa_id)
+    sesiones = list_sesiones(programa_id)
+    return render_template(
+        "programa_detail.html",
+        programa=programa,
+        sesiones=sesiones,
+        status_label=_status_label,
+    )
+
+
+@dashboard_bp.route("/programas/<programa_id>/delete", methods=["POST"])
+def delete_programa_route(programa_id: str):
+    _get_programa_or_404(programa_id)
+
+    if delete_programa(programa_id):
+        flash("Clase eliminada correctamente.", "success")
+    else:
+        flash("No se pudo eliminar la clase.", "error")
+
+    return redirect(url_for("dashboard.dashboard"))
 
 
 @dashboard_bp.route("/<clase_id>/edit", methods=["GET", "POST"])
@@ -100,7 +146,7 @@ def edit_clase(clase_id: str):
             sala=sala,
             nivel=nivel,
         )
-        flash("Clase actualizada correctamente.", "success")
+        flash("Sesión actualizada correctamente.", "success")
         return redirect(url_for("dashboard.session_detail", clase_id=clase_id))
     except UploadValidationError as exc:
         flash(str(exc), "error")
@@ -109,14 +155,15 @@ def edit_clase(clase_id: str):
 
 @dashboard_bp.route("/<clase_id>/delete", methods=["POST"])
 def delete_clase_route(clase_id: str):
-    _get_clase_or_404(clase_id)
+    clase = _get_clase_or_404(clase_id)
+    programa_id = clase.programa_id
 
     if delete_clase(clase_id):
-        flash("Clase eliminada correctamente.", "success")
+        flash("Sesión eliminada correctamente.", "success")
     else:
-        flash("No se pudo eliminar la clase.", "error")
+        flash("No se pudo eliminar la sesión.", "error")
 
-    return redirect(url_for("dashboard.dashboard"))
+    return redirect(url_for("dashboard.programa_detail", programa_id=programa_id))
 
 
 @dashboard_bp.route("/<clase_id>")

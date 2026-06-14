@@ -11,11 +11,12 @@ from werkzeug.utils import secure_filename
 from flask import current_app, url_for
 
 from app.extensions import db
-from app.models import ArchivoMedia, Clase
+from app.models import ArchivoMedia, Clase, ProgramaClase
 from app.services.analysis.constants import CLASE_AWAITING_UPLOAD
 from app.services.analysis_service import enqueue_analysis
 from app.services.aws import s3_client
 from app.services.class_service import create_pending_metrics, get_clase
+from app.services.programa_service import get_programa
 
 
 class UploadValidationError(Exception):
@@ -86,26 +87,22 @@ def _save_file(clase_id: uuid.UUID, file: FileStorage, prefix: str) -> ArchivoMe
     )
 
 
-def create_pending_class(
+def _session_nombre(programa: ProgramaClase, fecha_inicio: datetime) -> str:
+    return f"{programa.nombre} — {fecha_inicio.strftime('%d/%m/%Y %H:%M')}"
+
+
+def create_pending_session(
     *,
-    nombre: str,
+    programa_id: str,
     fecha: str,
-    gimnasio_id: str,
-    profesor_id: str,
-    tipo_clase_id: str,
-    sala: str | None = None,
-    nivel: str | None = None,
     video_filename: str | None = None,
     audio_filename: str | None = None,
 ) -> dict:
     """
-    Crea la clase en estado ``awaiting_upload`` y devuelve URLs pre-firmadas para
+    Crea una sesión en estado ``awaiting_upload`` y devuelve URLs pre-firmadas para
     que el navegador suba los archivos **directo a S3** (sin pasar por el servidor).
-    El análisis se dispara luego en ``finalize_class_upload``.
+    Hereda metadata del programa padre.
     """
-    if not nombre.strip():
-        raise UploadValidationError("El nombre de la clase es obligatorio.")
-
     if not video_filename and not audio_filename:
         raise UploadValidationError("Debes subir al menos un archivo de video o audio.")
 
@@ -119,23 +116,21 @@ def create_pending_class(
     ):
         raise UploadValidationError("Formato de audio no permitido. Usa: mp3, wav, m4a u ogg.")
 
-    try:
-        gimnasio_uuid = uuid.UUID(gimnasio_id)
-        profesor_uuid = uuid.UUID(profesor_id)
-        tipo_clase_uuid = uuid.UUID(tipo_clase_id)
-    except ValueError as exc:
-        raise UploadValidationError("Selecciona gimnasio, profesor y tipo de clase válidos.") from exc
+    programa = get_programa(programa_id)
+    if programa is None:
+        raise UploadValidationError("Clase no encontrada.")
 
     fecha_inicio = _parse_fecha(fecha)
 
     clase = Clase(
-        gimnasio_id=gimnasio_uuid,
-        profesor_id=profesor_uuid,
-        tipo_clase_id=tipo_clase_uuid,
-        nombre=nombre.strip(),
+        gimnasio_id=programa.gimnasio_id,
+        profesor_id=programa.profesor_id,
+        tipo_clase_id=programa.tipo_clase_id,
+        programa_id=programa.id,
+        nombre=_session_nombre(programa, fecha_inicio),
         fecha_inicio=fecha_inicio,
-        sala=sala.strip() if sala else None,
-        nivel=nivel.strip() if nivel else None,
+        sala=programa.sala,
+        nivel=programa.nivel,
         status=CLASE_AWAITING_UPLOAD,
     )
     db.session.add(clase)
@@ -165,7 +160,6 @@ def create_pending_class(
 
     db.session.flush()
 
-    # Métricas pending (para el dashboard). Los jobs los crea el pipeline.
     for metrica in create_pending_metrics(clase):
         db.session.add(metrica)
 
@@ -173,9 +167,41 @@ def create_pending_class(
 
     return {
         "clase_id": str(clase.id),
+        "programa_id": str(programa.id),
         "uploads": uploads,
         "redirect_url": url_for("dashboard.session_detail", clase_id=clase.id),
     }
+
+
+def create_pending_class(
+    *,
+    nombre: str,
+    fecha: str,
+    gimnasio_id: str,
+    profesor_id: str,
+    tipo_clase_id: str,
+    sala: str | None = None,
+    nivel: str | None = None,
+    video_filename: str | None = None,
+    audio_filename: str | None = None,
+) -> dict:
+    """Compatibilidad: crea programa + sesión en un paso."""
+    from app.services.programa_service import create_programa
+
+    programa = create_programa(
+        nombre=nombre,
+        gimnasio_id=gimnasio_id,
+        profesor_id=profesor_id,
+        tipo_clase_id=tipo_clase_id,
+        sala=sala,
+        nivel=nivel,
+    )
+    return create_pending_session(
+        programa_id=str(programa.id),
+        fecha=fecha,
+        video_filename=video_filename,
+        audio_filename=audio_filename,
+    )
 
 
 def finalize_class_upload(clase_id: str) -> Clase:

@@ -35,11 +35,46 @@ docker compose up
 
 ## Uso de la aplicación
 
-1. Ve a **Subir clase** y completa gimnasio, profesor, tipo, nombre, fecha y archivos (video y/o audio).
-2. Tras crear la clase, verás el detalle con las métricas en estado pendiente.
-3. En **Dashboard** aparecen todas las clases registradas.
+El flujo tiene dos pasos: **crear la clase recurrente** y **subir sesiones** (grabaciones semanales).
 
-Al arrancar, la app crea automáticamente las tablas y datos de demostración (1 gimnasio, 3 profesores, 4 tipos de clase y 4 clases de ejemplo enlazadas a videos en S3).
+1. **Nueva clase** (`/upload/programa`) — define gimnasio, profesor, tipo, nombre, sala y nivel (sin archivos).
+2. Desde el detalle de la clase → **Subir sesión** — elige fecha y sube video y/o audio.
+3. Repite el paso 2 cada semana para acumular historial de la misma clase.
+4. En **Dashboard** ves las clases recurrentes con el número de sesiones; entra a **Ver historial** para listarlas.
+
+Al arrancar por primera vez (base vacía), la app crea las tablas, aplica migraciones y siembra datos de demostración (1 gimnasio, 3 profesores, 4 tipos de clase y 4 clases de ejemplo enlazadas a videos en S3).
+
+## Restaurar dump con datos analizados (`gymsight_demo.sql`)
+
+El archivo `gymsight_demo.sql` incluye clases **ya analizadas** (jobs AWS, métricas completas). Fue exportado con el esquema **anterior** (sin tabla `programas_clase`). Para usarlo:
+
+**No restaures el dump directamente sobre una base que ya tiene migraciones** — Postgres bloqueará los `DROP TABLE` porque `programas_clase` referencia otras tablas. Hay que recrear la base vacía, restaurar y migrar.
+
+### Comando recomendado
+
+Desde la carpeta del proyecto:
+
+```bash
+./docker/restore-demo.sh gymsight_demo.sql
+```
+
+El script:
+
+1. Levanta Postgres y detiene `web` (libera conexiones).
+2. Recrea la base de datos `gymsight` desde cero.
+3. Restaura el dump.
+4. Aplica la migración `programas_clase` (cada clase antigua pasa a ser 1 programa + 1 sesión; **métricas y jobs se conservan**).
+5. Levanta `web` de nuevo.
+
+Al terminar: **http://localhost:5001/dashboard/**
+
+### Migraciones en arranque normal
+
+Si ya tienes datos en Docker **sin** restaurar un dump, el entrypoint detecta el esquema y aplica migraciones pendientes al levantar `web`. También puedes ejecutarlas a mano:
+
+```bash
+docker compose exec web flask db upgrade
+```
 
 ## Comandos útiles
 
@@ -51,6 +86,8 @@ Al arrancar, la app crea automáticamente las tablas y datos de demostración (1
 | `docker compose down -v` | Detiene y **borra** datos (BD y uploads) |
 | `docker compose logs -f web` | Ver logs de la aplicación |
 | `docker compose ps` | Estado de los contenedores |
+| `./docker/restore-demo.sh gymsight_demo.sql` | Restaura dump analizado + migración |
+| `docker compose exec web flask db upgrade` | Aplica migraciones pendientes |
 
 ## Conectar DBeaver (u otro cliente SQL)
 
@@ -95,10 +132,13 @@ Copia `.env.example` a `.env` antes del primer `docker compose up`:
 | `gimnasios` | Sede / negocio |
 | `profesores` | Instructores |
 | `tipos_clase` | Yoga, Pilates, Spinning, etc. |
-| `clases` | Instancia concreta de una clase |
+| `programas_clase` | Clase recurrente (p. ej. «Pilates martes 10:00») |
+| `clases` | Sesión concreta (una grabación semanal) |
 | `archivos_media` | Videos y audios subidos |
 | `analisis_jobs` | Jobs de análisis AWS (Rekognition/Transcribe) |
-| `metricas` | Las 5 métricas del dashboard |
+| `metricas` | Las 5 métricas del dashboard (por sesión) |
+
+Cada `programas_clase` agrupa muchas `clases` (sesiones). Cada sesión tiene su propio video, jobs y métricas.
 
 ## Métricas
 
@@ -118,8 +158,11 @@ app/
 │   ├── analysis/        # Pipeline, poller, extractores de métricas
 │   ├── analysis_service.py   # Punto de entrada: enqueue_analysis()
 │   ├── class_service.py
+│   ├── programa_service.py
 │   └── upload_service.py
 docker/
+├── entrypoint.sh        # Migraciones + seed al arrancar
+└── restore-demo.sh      # Restaurar gymsight_demo.sql
 migrations/
 docker-compose.yml
 Dockerfile
@@ -145,11 +188,11 @@ Con `AWS_ENABLED=false` la app funciona normal sin tocar AWS (los archivos se gu
 ### Flujo real
 
 ```text
-1. Usuario sube clase  (o el video ya está en S3 por cámaras/grabaciones)
-2. El servidor crea la clase (estado "awaiting_upload") y devuelve URLs PRE-FIRMADAS
+1. Usuario crea la clase recurrente (programa) y sube una sesión (video/audio)
+2. El servidor crea la sesión (estado "awaiting_upload") y devuelve URLs PRE-FIRMADAS
 3. El navegador sube el video DIRECTO a S3 (no pasa por el servidor)
 4. Al terminar, /upload/<id>/complete verifica el objeto en S3 y dispara el análisis
-5. pipeline pone la clase en "analizando" y lanza jobs: Rekognition FaceDetection + Transcribe
+5. pipeline pone la sesión en "analizando" y lanza jobs: Rekognition FaceDetection + Transcribe
 6. flask aws-poll-jobs  (o webhook SNS) consulta el estado en AWS
 7. al terminar, metrics_extractor (+ Comprehend) calcula las 5 métricas
 8. clase.status = completada  →  el dashboard muestra los valores reales

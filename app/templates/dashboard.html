@@ -5,42 +5,40 @@
 {% block content %}
 <section class="page-header">
   <h1>Dashboard</h1>
-  <p>Clases registradas y estado de análisis.</p>
-  <a class="btn btn-primary" href="{{ url_for('uploads.upload') }}">Nueva clase</a>
+  <p>Clases recurrentes y historial de sesiones.</p>
+  <a class="btn btn-primary" href="{{ url_for('uploads.upload_programa') }}">Nueva clase</a>
 </section>
 
 {% set _labels = {"pendiente_analisis": "Pendiente", "analizando": "Analizando", "completada": "Completada", "completada_parcial": "Completada parcial", "error": "Error"} %}
 {% set _badges = {"completada": "badge-success", "completada_parcial": "badge-success", "error": "badge-error"} %}
-{% if clases %}
+{% if programas %}
   <div class="session-grid">
-    {% for clase in clases %}
+    {% for programa in programas %}
       <article class="session-card">
         <div class="session-card-header">
-          <h2>{{ clase.nombre }}</h2>
-          <span class="badge {{ _badges.get(clase.status, 'badge-pending') }}">{{ _labels.get(clase.status, clase.status) }}</span>
+          <h2>{{ programa.nombre }}</h2>
+          {% if programa.ultima_sesion %}
+            <span class="badge {{ _badges.get(programa.ultima_sesion.status, 'badge-pending') }}">
+              {{ _labels.get(programa.ultima_sesion.status, programa.ultima_sesion.status) }}
+            </span>
+          {% else %}
+            <span class="badge badge-pending">Sin sesiones</span>
+          {% endif %}
         </div>
         <p class="session-meta">
-          <strong>Tipo:</strong> {{ clase.tipo_clase.nombre }}<br>
-          <strong>Profesor:</strong> {{ clase.profesor.nombre_completo }}<br>
-          <strong>Fecha:</strong> {{ clase.fecha_inicio.strftime('%d/%m/%Y %H:%M') }}
-        </p>
-        <p class="session-files">
-          {% if clase.tiene_video %}
-            <span class="file-tag">Video</span>
-          {% endif %}
-          {% if clase.tiene_audio %}
-            <span class="file-tag">Audio</span>
-          {% endif %}
+          <strong>Tipo:</strong> {{ programa.tipo_clase.nombre }}<br>
+          <strong>Profesor:</strong> {{ programa.profesor.nombre_completo }}<br>
+          <strong>Sesiones:</strong> {{ programa.num_sesiones }}
         </p>
         <div class="card-actions">
-          <a class="btn btn-secondary" href="{{ url_for('dashboard.session_detail', clase_id=clase.id) }}">
-            Ver detalle
+          <a class="btn btn-secondary" href="{{ url_for('dashboard.programa_detail', programa_id=programa.id) }}">
+            Ver historial
           </a>
-          <a class="btn btn-secondary btn-sm" href="{{ url_for('dashboard.edit_clase', clase_id=clase.id) }}">
-            Editar
+          <a class="btn btn-secondary btn-sm" href="{{ url_for('uploads.upload', programa_id=programa.id) }}">
+            Subir sesión
           </a>
-          <form method="post" action="{{ url_for('dashboard.delete_clase_route', clase_id=clase.id) }}"
-                onsubmit="return confirm('¿Eliminar esta clase? Esta acción no se puede deshacer.');">
+          <form method="post" action="{{ url_for('dashboard.delete_programa_route', programa_id=programa.id) }}"
+                onsubmit="return confirm('¿Eliminar esta clase y todas sus sesiones? Esta acción no se puede deshacer.');">
             <button type="submit" class="btn btn-danger btn-sm">Eliminar</button>
           </form>
         </div>
@@ -50,7 +48,7 @@
 {% else %}
   <div class="empty-state">
     <p>No hay clases registradas todavía.</p>
-    <a class="btn btn-primary" href="{{ url_for('uploads.upload') }}">Subir primera clase</a>
+    <a class="btn btn-primary" href="{{ url_for('uploads.upload_programa') }}">Crear primera clase</a>
   </div>
 {% endif %}
 {% endblock %}

@@ -1,0 +1,330 @@
+<title>GymSight · Estudio de validación</title>
+<style>
+  :root {
+    --bg: #0f1419;
+    --surface: #1a2332;
+    --surface-2: #243044;
+    --text: #e8edf4;
+    --muted: #9aa8bc;
+    --accent: #ff6b35;
+    --accent-soft: #ff8555;
+    --green: #3dd68c;
+    --red: #f87171;
+    --border: #2d3a4f;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    --sans: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 0 24px; }
+
+  /* ---- eyebrow / labels ---- */
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 18px;
+  }
+  .sec-num {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.2em;
+    color: var(--muted);
+  }
+
+  /* ---- hero ---- */
+  .hero {
+    border-bottom: 1px solid var(--border);
+    padding: 84px 0 64px;
+    background:
+      radial-gradient(900px 380px at 78% -8%, rgba(255,107,53,0.16), transparent 60%);
+    animation: fade 0.7s ease both;
+  }
+  @keyframes fade { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  .brand { font-family: var(--mono); font-weight: 700; letter-spacing: 0.04em; color: var(--text); }
+  .brand b { color: var(--accent); }
+  h1 {
+    font-size: clamp(2.1rem, 5.4vw, 3.7rem);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    font-weight: 800;
+    margin: 0 0 22px;
+    max-width: 16ch;
+  }
+  h1 .hl { color: var(--accent); }
+  .lede { font-size: 1.18rem; color: var(--muted); max-width: 60ch; margin: 0; }
+
+  /* ---- stat row ---- */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-top: 44px;
+  }
+  .stat { background: var(--surface); padding: 22px 20px; }
+  .stat .n { font-family: var(--mono); font-size: 2rem; font-weight: 700; color: var(--text); }
+  .stat .n.accent { color: var(--accent); }
+  .stat .l { font-size: 0.82rem; color: var(--muted); margin-top: 2px; }
+
+  /* ---- sections ---- */
+  section { padding: 64px 0; border-bottom: 1px solid var(--border); }
+  .sec-head { display: flex; align-items: baseline; gap: 16px; margin-bottom: 28px; }
+  h2 { font-size: clamp(1.5rem, 3vw, 2.1rem); letter-spacing: -0.01em; margin: 0; font-weight: 700; }
+  h3 { font-size: 1.05rem; margin: 0 0 6px; }
+  p { margin: 0 0 14px; }
+  .muted { color: var(--muted); }
+
+  /* ---- generic grid of cards ---- */
+  .grid { display: grid; gap: 16px; }
+  .g2 { grid-template-columns: repeat(2, 1fr); }
+  .g3 { grid-template-columns: repeat(3, 1fr); }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px;
+  }
+  .card .k { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); }
+
+  .qa { display: grid; gap: 14px; }
+  .qa .row { display: grid; grid-template-columns: 130px 1fr; gap: 18px; align-items: start; }
+  .qa .q { font-family: var(--mono); font-size: 0.8rem; color: var(--accent); text-transform: uppercase; letter-spacing: 0.1em; padding-top: 2px; }
+  @media (max-width: 640px) { .qa .row { grid-template-columns: 1fr; gap: 4px; } }
+
+  .todo { color: var(--accent-soft); font-family: var(--mono); font-size: 0.85em; background: rgba(255,107,53,0.1); padding: 1px 7px; border-radius: 5px; }
+
+  /* ---- console / evidence ---- */
+  .console {
+    background: #0a0e13;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    font-family: var(--mono);
+    font-size: 0.84rem;
+  }
+  .console .bar { background: var(--surface-2); padding: 9px 16px; color: var(--muted); font-size: 0.74rem; letter-spacing: 0.1em; border-bottom: 1px solid var(--border); }
+  .console .body { padding: 16px; overflow-x: auto; }
+  .logline { white-space: pre; color: var(--muted); }
+  .logline .ok { color: var(--green); }
+  .logline .svc { color: var(--accent-soft); }
+  .logline .id { color: #5d7290; }
+
+  /* ---- tables ---- */
+  .tablewrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; }
+  table { width: 100%; border-collapse: collapse; min-width: 540px; }
+  th, td { text-align: right; padding: 13px 16px; border-bottom: 1px solid var(--border); font-family: var(--mono); font-size: 0.9rem; }
+  th { background: var(--surface-2); color: var(--muted); font-weight: 600; font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; }
+  td:first-child, th:first-child { text-align: left; color: var(--text); }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: var(--surface); }
+
+  /* ---- callout (tip) ---- */
+  .tip {
+    border-left: 3px solid var(--accent);
+    background: var(--surface);
+    border-radius: 0 12px 12px 0;
+    padding: 18px 22px;
+    margin-top: 20px;
+  }
+  .tip .k { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); display: block; margin-bottom: 6px; }
+  .tip p { margin: 0; font-style: italic; }
+
+  /* ---- bars (variable detail) ---- */
+  .bars { display: grid; gap: 12px; margin-top: 6px; }
+  .bar { display: grid; grid-template-columns: 160px 1fr 52px; gap: 12px; align-items: center; font-size: 0.88rem; }
+  .bar .track { background: var(--surface-2); border-radius: 6px; height: 9px; overflow: hidden; }
+  .bar .fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-soft)); border-radius: 6px; }
+  .bar .v { font-family: var(--mono); color: var(--text); text-align: right; }
+  .bar .lbl { color: var(--muted); }
+  @media (max-width: 560px) { .bar { grid-template-columns: 110px 1fr 44px; } }
+
+  ul.clean { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 12px; }
+  ul.clean li { padding-left: 26px; position: relative; }
+  ul.clean li::before { content: "›"; position: absolute; left: 4px; color: var(--accent); font-weight: 700; }
+
+  .verdict { display: inline-block; font-family: var(--mono); font-size: 0.8rem; letter-spacing: 0.08em; padding: 5px 12px; border-radius: 999px; background: rgba(61,214,140,0.14); color: var(--green); border: 1px solid rgba(61,214,140,0.3); margin-bottom: 18px; }
+
+  footer { padding: 40px 0 60px; color: var(--muted); font-family: var(--mono); font-size: 0.8rem; }
+
+  @media (max-width: 720px) { .stats { grid-template-columns: repeat(2,1fr); } .g2,.g3 { grid-template-columns: 1fr; } }
+  @media (prefers-reduced-motion: reduce) { .hero { animation: none; } }
+</style>
+
+<header class="hero">
+  <div class="wrap">
+    <p class="eyebrow">Estudio de validación · 2026</p>
+    <p class="brand"><b>Gym</b>Sight</p>
+    <h1>Medir la calidad de una clase grupal desde el <span class="hl">video y el audio</span>. Sin encuestas.</h1>
+    <p class="lede">Analizamos grabaciones reales de clases de yoga y pilates con IA para entregarle a cada profesor métricas objetivas y recomendaciones que puede aplicar en su próxima clase, sin interrumpir a los alumnos.</p>
+
+    <div class="stats">
+      <div class="stat"><div class="n accent">4</div><div class="l">sesiones reales procesadas</div></div>
+      <div class="stat"><div class="n">8</div><div class="l">jobs de AWS ejecutados</div></div>
+      <div class="stat"><div class="n">5</div><div class="l">métricas por sesión</div></div>
+      <div class="stat"><div class="n accent">0</div><div class="l">encuestas necesarias</div></div>
+    </div>
+  </div>
+</header>
+
+<main>
+
+<!-- 01 -->
+<section>
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">01</span><h2>Detalles del estudio</h2></div>
+    <div class="qa">
+      <div class="row"><div class="q">Qué</div><div>Piloto técnico para validar si se puede medir objetivamente la calidad de una clase grupal (asistencia, permanencia, claridad, dinámica habla/demostración y satisfacción) usando solo el video y el audio, y generar recomendaciones útiles para el profesor.</div></div>
+      <div class="row"><div class="q">Quiénes</div><div>Equipo: <span class="todo">[COMPLETAR: integrantes]</span>. Caso piloto: clases del perfil "Malakita Yoga" (grabaciones reales de clases grupales). Estudio de clientes: <span class="todo">[COMPLETAR: entrevistas a profesores / gimnasios]</span>.</div></div>
+      <div class="row"><div class="q">Cuántos</div><div>4 sesiones reales procesadas de punta a punta · 8 jobs de AWS · 20 métricas en el caso piloto. La plataforma de demo está cargada con datos de varios profesores para mostrar el dashboard completo.</div></div>
+      <div class="row"><div class="q">Dónde</div><div>Grabaciones de clases de yoga/pilates, procesadas en la nube en AWS (región us-west-2). App ejecutada localmente con Docker.</div></div>
+      <div class="row"><div class="q">Cómo</div><div>Subida del video a S3, análisis automático con Rekognition (caras y emociones) y Transcribe (transcripción), cálculo de las 5 métricas con Comprehend (sentimiento), y recomendaciones generadas con Amazon Bedrock (modelo Amazon Nova).</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- 02 -->
+<section>
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">02</span><h2>Evidencia</h2></div>
+    <p class="muted">Procesamiento real en AWS: jobs completados de Rekognition y Transcribe para las 4 sesiones del piloto.</p>
+    <div class="console">
+      <div class="bar">flask aws-poll-jobs · profesor: Malakita Yoga</div>
+      <div class="body">
+<div class="logline">15/06  <span class="svc">rekognition_face_detection</span>  <span class="ok">completed</span>  <span class="id">bc5de59b920f87ba70fb…</span></div>
+<div class="logline">15/06  <span class="svc">transcribe                </span>  <span class="ok">completed</span>  <span class="id">gymsight-d04b7ff0-da52…</span></div>
+<div class="logline">16/06  <span class="svc">rekognition_face_detection</span>  <span class="ok">completed</span>  <span class="id">5ed46c4bce057f726667…</span></div>
+<div class="logline">16/06  <span class="svc">transcribe                </span>  <span class="ok">completed</span>  <span class="id">gymsight-dee077c4-469c…</span></div>
+<div class="logline">19/06  <span class="svc">rekognition_face_detection</span>  <span class="ok">completed</span>  <span class="id">e4b1767797350f732f15…</span></div>
+<div class="logline">19/06  <span class="svc">transcribe                </span>  <span class="ok">completed</span>  <span class="id">gymsight-54d0d924-9131…</span></div>
+<div class="logline">20/06  <span class="svc">rekognition_face_detection</span>  <span class="ok">completed</span>  <span class="id">71c80a083090fb496c85…</span></div>
+<div class="logline">20/06  <span class="svc">transcribe                </span>  <span class="ok">completed</span>  <span class="id">gymsight-014c40b2-0806…</span></div>
+      </div>
+    </div>
+
+    <h3 style="margin-top:32px">Los números no son arbitrarios</h3>
+    <p class="muted">Desglose interno de una sesión (16/06). Cada métrica se deriva de datos medibles:</p>
+    <div class="grid g3">
+      <div class="card"><div class="k">Claridad = 73</div><p class="muted" style="margin:8px 0 0">79.6 palabras/min · frases de 20.2 palabras · 3.9 pausas/min (óptimo WPM: 120-160).</p></div>
+      <div class="card"><div class="k">Hablando = 57.5%</div><p class="muted" style="margin:8px 0 0">1382.6 s hablando vs 1024 s en silencio, sobre 2406.6 s de clase (~40 min).</p></div>
+      <div class="card"><div class="k">Satisfacción = 61</div><p class="muted" style="margin:8px 0 0">70% emociones faciales (CALM 70%, SURPRISED 7%, HAPPY 4.5%) + 30% sentimiento del texto.</p></div>
+    </div>
+    <p class="muted" style="margin-top:18px;font-size:0.9rem">Capturas a incluir: <span class="todo">[COMPLETAR: screenshots del dashboard, gráficos y recomendaciones]</span></p>
+  </div>
+</section>
+
+<!-- 03 -->
+<section>
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">03</span><h2>Variables medidas</h2></div>
+    <div class="grid g2">
+      <div class="card"><div class="k">Asistencia · personas</div><h3 style="margin-top:8px">Cuántos asisten</h3><p class="muted" style="margin:0">Peak de caras simultáneas detectadas en el video (Rekognition).</p></div>
+      <div class="card"><div class="k">Permanencia · %</div><h3 style="margin-top:8px">Si se quedan hasta el final</h3><p class="muted" style="margin:0">Caras al final divididas por caras al inicio.</p></div>
+      <div class="card"><div class="k">Claridad · score</div><h3 style="margin-top:8px">Qué tan claras son las indicaciones</h3><p class="muted" style="margin:0">Ritmo de habla, largo de frases y pausas (Transcribe).</p></div>
+      <div class="card"><div class="k">Habla vs demostración · %</div><h3 style="margin-top:8px">Cuánto habla vs demuestra</h3><p class="muted" style="margin:0">Segundos con voz divididos por la duración total.</p></div>
+      <div class="card" style="grid-column:1/-1"><div class="k">Satisfacción · score</div><h3 style="margin-top:8px">Clima emocional de la clase</h3><p class="muted" style="margin:0">70% emociones faciales (Rekognition) + 30% sentimiento del texto (Comprehend). Todo desde el video y el audio, sin preguntarle nada a los alumnos.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 04 -->
+<section>
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">04</span><h2>Resultados</h2></div>
+    <p class="muted">Métricas reales del caso piloto (Malakita Yoga, 4 sesiones):</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Fecha</th><th>Asistencia</th><th>Permanencia</th><th>Claridad</th><th>% Hablando</th><th>Satisfacción</th></tr></thead>
+        <tbody>
+          <tr><td>15/06</td><td>10</td><td>90%</td><td>68</td><td>34.2%</td><td>61</td></tr>
+          <tr><td>16/06</td><td>9</td><td>100%</td><td>73</td><td>57.5%</td><td>61</td></tr>
+          <tr><td>19/06</td><td>18</td><td>100%</td><td>61</td><td>33.2%</td><td>60</td></tr>
+          <tr><td>20/06</td><td>7</td><td>100%</td><td>67</td><td>36.4%</td><td>52</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 style="margin-top:30px">Asistencia por sesión</h3>
+    <div class="bars">
+      <div class="bar"><span class="lbl">15/06</span><div class="track"><div class="fill" style="width:56%"></div></div><span class="v">10</span></div>
+      <div class="bar"><span class="lbl">16/06</span><div class="track"><div class="fill" style="width:50%"></div></div><span class="v">9</span></div>
+      <div class="bar"><span class="lbl">19/06</span><div class="track"><div class="fill" style="width:100%"></div></div><span class="v">18</span></div>
+      <div class="bar"><span class="lbl">20/06</span><div class="track"><div class="fill" style="width:39%"></div></div><span class="v">7</span></div>
+    </div>
+
+    <ul class="clean" style="margin-top:24px">
+      <li>El sistema produce métricas coherentes y trazables: cada valor tiene su desglose.</li>
+      <li>Aparecen señales accionables (ej. asistencia variable entre 7 y 18) que el profesor hoy no tiene sin encuestas.</li>
+      <li>Pese a una restricción de AWS en el tracking de personas, el sistema cae a detección de caras y entrega igual las 5 métricas.</li>
+    </ul>
+
+    <div class="tip">
+      <span class="k">Recomendación generada por IA (real)</span>
+      <p>"Reducir el tiempo hablando: demuestra los movimientos en vez de describirlos; ejecuta junto a los alumnos y usa señales corporales y conteo en lugar de explicaciones largas."</p>
+    </div>
+  </div>
+</section>
+
+<!-- 05 -->
+<section>
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">05</span><h2>Conclusiones</h2></div>
+    <ul class="clean">
+      <li>Es viable extraer métricas objetivas de calidad de clase desde video y audio, sin encuestas.</li>
+      <li>Las métricas son explicables: cada número se puede auditar con su detalle, no es una caja negra.</li>
+      <li>La IA generativa convierte los datos en consejos concretos que el profesor aplica en su próxima clase.</li>
+      <li>La arquitectura degrada con elegancia ante restricciones de servicios externos.</li>
+      <li>El pipeline funciona de punta a punta contra AWS real, no es un mockup.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- 06 -->
+<section>
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">06</span><h2>¿Resuelve el dolor?</h2></div>
+    <span class="verdict">Sí, parcialmente · dirección validada</span>
+    <p><strong>El dolor:</strong> profesores y gimnasios no tienen feedback objetivo de la calidad de las clases; dependen de encuestas (baja respuesta, sesgo, intrusivas) o de la percepción del propio profesor.</p>
+    <p class="muted">Hoy ya entrega métricas y recomendaciones reales sin encuestas. Para volverlo un producto robusto faltan:</p>
+    <ul class="clean" style="margin-top:8px">
+      <li>Asistencia y permanencia más precisas: tracking de personas (Label Detection o YOLOv9 + ByteTrack en SageMaker) en vez de conteo de caras.</li>
+      <li>Validación contra terreno real: comparar las métricas con asistencia y satisfacción reales.</li>
+      <li>Captura en gimnasios reales: setup de cámara y micrófono, consentimiento y privacidad.</li>
+      <li>Operación a escala: automatizar el procesamiento (hoy es manual) y controlar el costo por hora de video.</li>
+      <li>Cerrar el loop: medir si seguir las recomendaciones efectivamente mejora las métricas.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- 07 -->
+<section>
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">07</span><h2>Incertidumbres que quedan</h2></div>
+    <div class="grid g2">
+      <div class="card"><h3>Validez de las métricas</h3><p class="muted" style="margin:0">¿Correlacionan con resultados reales como retención, satisfacción o renovación de membresías? Es la incertidumbre principal.</p></div>
+      <div class="card"><h3>Generalización</h3><p class="muted" style="margin:0">¿Sirven los mismos umbrales para yoga, spinning, funcional y otras disciplinas?</p></div>
+      <div class="card"><h3>Condiciones reales</h3><p class="muted" style="margin:0">Iluminación, ángulo, ruido y clases llenas (oclusión de caras) en gimnasios reales.</p></div>
+      <div class="card"><h3>Privacidad y consentimiento</h3><p class="muted" style="margin:0">Grabar alumnos implica marco legal y aceptación del gimnasio.</p></div>
+      <div class="card"><h3>Modelo de negocio</h3><p class="muted" style="margin:0">¿Cuánto vale para un gimnasio o profesor y cuál es la disposición a pagar?</p></div>
+      <div class="card"><h3>Costo y adopción</h3><p class="muted" style="margin:0">Costo del procesamiento en la nube a escala, y si el profesor confía en la IA y cambia su forma de enseñar.</p></div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">GymSight · Análisis inteligente de clases grupales · Demo técnica en README.md</div>
+</footer>

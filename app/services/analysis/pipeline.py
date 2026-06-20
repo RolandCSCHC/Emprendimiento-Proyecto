@@ -87,13 +87,14 @@ def _process_archivo(
     base = {"s3_bucket": archivo.s3_bucket, "s3_key": archivo.s3_key}
 
     if archivo.tipo == "video":
-        _launch(
-            clase, archivo, SERVICE_PERSON_TRACKING,
-            lambda: rekognition_client.start_person_tracking(
-                archivo.s3_bucket, archivo.s3_key, sns_topic_arn
-            ),
-            {**base, "service": SERVICE_PERSON_TRACKING, "sns_topic_arn": sns_topic_arn},
-        )
+        if current_app.config.get("REKOGNITION_PERSON_TRACKING_ENABLED"):
+            _launch(
+                clase, archivo, SERVICE_PERSON_TRACKING,
+                lambda: rekognition_client.start_person_tracking(
+                    archivo.s3_bucket, archivo.s3_key, sns_topic_arn
+                ),
+                {**base, "service": SERVICE_PERSON_TRACKING, "sns_topic_arn": sns_topic_arn},
+            )
         _launch(
             clase, archivo, SERVICE_FACE_DETECTION,
             lambda: rekognition_client.start_face_detection(

@@ -550,3 +550,70 @@ a:hover {
     margin-top: 0.5rem;
   }
 }
+
+/* Recomendaciones IA */
+.recomendaciones-section .reco-subtitle {
+  margin-top: -0.25rem;
+  margin-bottom: 1.25rem;
+  font-size: 0.9rem;
+}
+
+.reco-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.reco-card {
+  display: flex;
+  gap: 0.85rem;
+  align-items: flex-start;
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 1rem 1.1rem;
+}
+
+.reco-card p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.reco-num {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.reco-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+}
+
+.reco-spinner {
+  width: 1.1rem;
+  height: 1.1rem;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: reco-spin 0.8s linear infinite;
+}
+
+.reco-message {
+  margin: 0;
+}
+
+@keyframes reco-spin {
+  to { transform: rotate(360deg); }
+}

@@ -140,13 +140,71 @@ Copia `.env.example` a `.env` antes del primer `docker compose up`:
 
 Cada `programas_clase` agrupa muchas `clases` (sesiones). Cada sesión tiene su propio video, jobs y métricas.
 
-## Métricas
+## Métricas: qué miden y cómo se calculan
 
-- Asistencia
-- Permanencia
-- Claridad de Instrucciones
-- Tiempo Hablando vs. Demostrando
-- Satisfacción del Alumno
+Las 5 métricas **no son valores arbitrarios**: cada una se deriva de la salida real de
+los servicios de AWS (Rekognition, Transcribe, Comprehend) con una fórmula explícita.
+La lógica vive en `app/services/analysis/metrics_extractor.py` y cada métrica guarda en
+`metricas.detalle` (JSON) los números intermedios que la justifican.
+
+### 1. Asistencia — *personas*
+
+- **Qué mide:** cuántas personas hubo en la clase.
+- **Fuente y cálculo:** se toma el **peak (máximo) de caras simultáneas** que Rekognition
+  FaceDetection detecta en los tres tercios del video (inicio / mitad / final), y se usa el
+  mayor de los tres.
+- **Unidad:** número de personas.
+- *Detalle guardado:* caras en inicio, mitad y final.
+
+> Fuente original era Rekognition **People Pathing** (conteo de personas únicas), pero AWS
+> lo descontinuó (31-oct-2025). El código mantiene ese camino como primario y cae al conteo
+> de caras como respaldo (ver flag `REKOGNITION_PERSON_TRACKING_ENABLED`).
+
+### 2. Permanencia — *porcentaje (0–100)*
+
+- **Qué mide:** si los alumnos se quedan hasta el final o la sala se vacía.
+- **Cálculo (respaldo FaceDetection):** `caras_al_final / caras_al_inicio × 100` (acotado a 100%).
+- **Cálculo (primario PersonTracking, si está disponible):** porcentaje de personas presentes
+  durante **≥ 80%** de la duración del video (`UMBRAL_PERMANENCIA_PCT`).
+- **Unidad:** %.
+
+### 3. Claridad de Instrucciones — *score 0–100*
+
+Se construye desde los timestamps de cada palabra que devuelve Transcribe. Combina tres
+sub-indicadores, cada uno con un rango óptimo (100 puntos dentro del rango, baja linealmente fuera):
+
+| Sub-indicador | Cómo se mide | Rango óptimo | Peso |
+|---|---|---|---|
+| Palabras por minuto (WPM) | nº palabras / minutos hablados | 120–160 | 50% |
+| Longitud media de frase | palabras / nº de frases (frase = corte tras pausa ≥ 1.5 s) | 8–15 palabras | 25% |
+| Pausas por minuto | nº de pausas ≥ 1.5 s / minuto | 2–8 | 25% |
+
+`score = 0.5·rango(WPM) + 0.25·rango(longitud_frase) + 0.25·rango(pausas/min)`
+
+- **Unidad:** score 0–100. Si el video no tiene voz → 0.
+
+### 4. Tiempo Hablando vs. Demostrando — *porcentaje hablando*
+
+- **Qué mide:** qué proporción de la clase el profesor pasa hablando vs. demostrando/ejecutando.
+- **Cálculo:** se fusionan las palabras contiguas (gap ≤ 0.5 s) en **segmentos de voz**; se suman
+  sus duraciones (`segundos_hablando`) y se divide por la duración total del video.
+  `% = segundos_hablando / duración_total × 100`. El resto se considera silencio (demostración).
+- **Unidad:** % del tiempo hablando (un valor muy alto sugiere que el profesor habla de más).
+
+### 5. Satisfacción del Alumno — *score 0–100*
+
+Score compuesto, **sin encuestas**, a partir de dos señales:
+
+- **Visual (70%)** — emociones faciales de Rekognition: `50 + 50·(positivas − negativas)/total`,
+  donde positivas = HAPPY, SURPRISED y negativas = SAD, ANGRY.
+- **Textual (30%)** — sentimiento del transcript vía Comprehend: `50 + 50·(positivo − negativo)`.
+
+Si solo hay una de las dos señales, esa pesa 100%. `score = 0.7·visual + 0.3·textual`.
+
+- **Unidad:** score 0–100.
+
+> Cada sesión queda `completada` si las 5 métricas se calcularon, o `completada_parcial`
+> si alguna falló (las demás igual se guardan).
 
 ## Estructura del proyecto
 
@@ -226,10 +284,13 @@ Con `AWS_ENABLED=false` la app funciona normal sin tocar AWS (los archivos se gu
 | Tiempo Hablando vs. Demostrando | Transcribe (segmentos con voz vs. silencio) |
 | Satisfacción del Alumno | Rekognition FaceDetection (emociones) + Comprehend (sentimiento) |
 
-**Nota sobre asistencia y permanencia:** AWS **descontinuó Rekognition People Pathing**
-(tracking de personas) el 31-oct-2025, que era su fuente original. Se reemplazó por conteo
-de caras de FaceDetection. Para producción, lo más preciso sería Label Detection ("Person")
-o YOLOv9 + ByteTrack en SageMaker (ver `DEPLOY.md`).
+**Nota sobre asistencia y permanencia:** AWS **restringe Rekognition People Pathing**
+(`StartPersonTracking`), que era su fuente original — devuelve `AccessDenied` a nivel de
+cuenta aunque IAM lo permita y el resto de APIs de Rekognition Video funcionen. Por eso el
+job está **desactivado por defecto** (`REKOGNITION_PERSON_TRACKING_ENABLED=false`) y ambas
+métricas usan el conteo de caras de FaceDetection como fuente. Si AWS te habilita la API,
+pon el flag en `true`. Para producción, lo más preciso sería Label Detection ("Person") o
+YOLOv9 + ByteTrack en SageMaker (ver `DEPLOY.md`).
 
 **Nota sobre claridad y habla/demo:** Transcribe **detecta el idioma automáticamente**
 (`TRANSCRIBE_LANGUAGE_CODE=auto`) entre los candidatos de `TRANSCRIBE_LANGUAGE_OPTIONS`
@@ -260,6 +321,9 @@ o YOLOv9 + ByteTrack en SageMaker (ver `DEPLOY.md`).
 | `ALLOWED_ORIGINS` | Orígenes permitidos para la subida directa (ej. `http://localhost:5001`) |
 | `PRESIGNED_URL_EXPIRES` | Expiración (s) de las URLs pre-firmadas (default 900) |
 | `SNS_TOPIC_ARN` / `REKOGNITION_SNS_ROLE_ARN` | Opcionales, solo si usas webhook SNS |
+| `REKOGNITION_PERSON_TRACKING_ENABLED` | `true` reactiva el job de PersonTracking (default `false`; AWS restringe esa API, ver nota de asistencia) |
+| `BEDROCK_MODEL_ID` | Modelo de Bedrock para los tips IA (default `us.amazon.nova-lite-v1:0`) |
+| `BEDROCK_MAX_TOKENS` | Máx. tokens de la respuesta del modelo (default `1024`) |
 
 ### Comandos del pipeline
 
@@ -284,6 +348,46 @@ No hace falta Celery ni colas: AWS procesa en la nube.
 ### Permisos AWS necesarios
 
 El usuario o rol IAM necesita: `s3:GetObject`, `s3:PutObject`, `rekognition:*`
-(o al menos FaceDetection), `transcribe:*` y `comprehend:DetectSentiment`.
+(o al menos FaceDetection), `transcribe:*`, `comprehend:DetectSentiment` y
+`bedrock:InvokeModel` + `bedrock:Converse` (para los tips IA).
 
 Para todo lo de producción (rol IAM, RDS, secrets, etc.) ver **`docs/DEPLOY.md`**.
+
+---
+
+## Recomendaciones IA para profesores (Amazon Bedrock / Nova)
+
+Además de las métricas, GymSight genera **tips accionables en lenguaje natural** para cada
+profesor, basados en su historial. Aparecen en la vista de detalle del programa, debajo de
+los gráficos.
+
+### Cómo funciona
+
+1. El frontend pide async `GET /api/profesores/<id>/recomendaciones`.
+2. `recommendation_service` agrega las métricas de **todas las sesiones completadas** del
+   profesor (promedio, mín, máx y tendencia comparando primera vs. segunda mitad).
+3. Arma un prompt con contexto por métrica e invoca **Amazon Bedrock (Amazon Nova)** vía la
+   Converse API (`bedrock_client`).
+4. Parsea la respuesta y la devuelve como JSON; el front la pinta en tarjetas.
+
+Las recomendaciones **no se persisten**: se generan bajo demanda y siempre reflejan el estado
+más reciente. Se necesitan **≥ 2 sesiones analizadas** del profesor (si no, devuelve
+`insufficient_data`).
+
+### Decisiones de diseño
+
+- Usa un **modelo nativo de AWS (Nova)** para que el consumo lo cubran los créditos de AWS;
+  configurable con `BEDROCK_MODEL_ID` (`nova-lite` por defecto, `nova-pro` para mayor calidad).
+- El prompt está orientado al producto: pide **acciones que el profesor aplica él mismo en
+  clase** y **prohíbe sugerir encuestas** o pedir feedback a los alumnos (la propuesta de valor
+  es mejorar *sin* encuestas). La salida es texto plano, sin Markdown.
+- Si `AWS_ENABLED=false`, el endpoint degrada con elegancia (no rompe la app).
+
+### Módulos
+
+| Archivo | Responsabilidad |
+|---------|-----------------|
+| `app/services/aws/bedrock_client.py` | Cliente Bedrock (Converse API) |
+| `app/services/recommendation_service.py` | Agregación + prompt + parsing + orquestación |
+| `app/routes/api.py` | `GET /api/profesores/<id>/recomendaciones` (200/404/503) |
+| `app/static/js/recommendations.js` | Fetch + render de las tarjetas |

@@ -65,6 +65,23 @@
   {% endif %}
 </section>
 
+{% if config.AWS_ENABLED %}
+<section class="recomendaciones-section session-info" id="recomendaciones-section">
+  <h2>Recomendaciones para {{ programa.profesor.nombre_completo }}</h2>
+  <p class="reco-subtitle text-muted">Consejos generados con IA a partir del historial de métricas del profesor.</p>
+  <div
+    id="recomendaciones-container"
+    data-profesor-id="{{ programa.profesor.id }}"
+    data-aws-enabled="{{ config.AWS_ENABLED | tojson }}"
+  >
+    <div class="reco-loading">
+      <span class="reco-spinner"></span>
+      <p class="text-muted">Generando recomendaciones con IA…</p>
+    </div>
+  </div>
+</section>
+{% endif %}
+
 <section class="session-info">
   <h2>Historial de sesiones</h2>
   {% set _labels = {"pendiente_analisis": "Pendiente", "analizando": "Analizando", "completada": "Completada", "completada_parcial": "Completada parcial", "error": "Error"} %}
@@ -107,4 +124,5 @@
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="{{ url_for('static', filename='js/programa_charts.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/recommendations.js') }}" defer></script>
 {% endblock %}

@@ -50,9 +50,23 @@ class Config:
     TRANSCRIBE_LANGUAGE_OPTIONS = os.environ.get(
         "TRANSCRIBE_LANGUAGE_OPTIONS", "es-ES,en-US"
     ).split(",")
+    # Rekognition StartPersonTracking está restringido por AWS a nivel de cuenta
+    # (AccessDenied aunque IAM lo permita). Por defecto NO se lanza: la asistencia
+    # y permanencia se calculan con el fallback de face_detection. Ponlo en "true"
+    # solo si AWS habilita la API en tu cuenta.
+    REKOGNITION_PERSON_TRACKING_ENABLED = (
+        os.environ.get("REKOGNITION_PERSON_TRACKING_ENABLED", "false").lower() == "true"
+    )
     # Subida directa cliente → S3 (presigned URLs)
     ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "http://localhost:5001").split(",")
     PRESIGNED_URL_EXPIRES = int(os.environ.get("PRESIGNED_URL_EXPIRES", 900))
+
+    # Bedrock — recomendaciones IA para profesores.
+    # Modelo nativo de AWS (Amazon Nova) para que el consumo lo cubran los
+    # créditos de AWS. Es un perfil de inferencia cross-region (prefijo "us."),
+    # requerido por Nova on-demand en us-west-2.
+    BEDROCK_MODEL_ID = os.environ.get("BEDROCK_MODEL_ID", "us.amazon.nova-lite-v1:0")
+    BEDROCK_MAX_TOKENS = int(os.environ.get("BEDROCK_MAX_TOKENS", 1024))
 
 
 class DevelopmentConfig(Config):
